@@ -22,8 +22,14 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    let apiUrl = 'https://api.anthropic.com/v1/messages';
-    let requestBody: any = {
+    const apiUrl = 'https://api.anthropic.com/v1/messages';
+    const requestBody: {
+      model: string; 
+      max_tokens: number;
+      thread_id?: string;
+      message?: { content: string };
+      messages?: unknown[];
+    } = {
       model: 'claude-3-opus-20240229',
       max_tokens: 4000,
     };

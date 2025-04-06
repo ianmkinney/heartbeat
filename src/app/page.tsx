@@ -12,7 +12,7 @@ export default function Home() {
               Team Pulse Monitoring
             </h1>
             <p className="text-xl text-muted">
-              Anonymously monitor your team's wellbeing with pulse checks
+              Anonymously monitor your team&apos;s wellbeing with pulse checks
             </p>
           </div>
           

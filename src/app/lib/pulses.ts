@@ -1,6 +1,6 @@
 // Pulses module for storing and retrieving pulse data
 // Uses Supabase with localStorage fallback
-import { supabase, withFallback, isSupabaseConfigured } from './supabase';
+import { supabase, withFallback } from './supabase';
 
 export interface PulseData {
   id: string;
@@ -150,7 +150,7 @@ export const getAllPulses = async (userId: number = DEFAULT_USER_ID): Promise<Pu
 };
 
 // Get a specific pulse by ID
-export const getPulseById = async (id: string, userId: number = DEFAULT_USER_ID): Promise<PulseData | undefined> => {
+export const getPulseById = async (id: string): Promise<PulseData | undefined> => {
   return withFallback(
     async () => {
       // Get from Supabase
@@ -195,7 +195,7 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
   return withFallback(
     async () => {
       // Convert to Supabase format
-      const supabaseData: any = {};
+      const supabaseData: Record<string, unknown> = {};
       if (updateData.responseCount !== undefined) supabaseData.response_count = updateData.responseCount;
       if (updateData.hasAnalysis !== undefined) supabaseData.has_analysis = updateData.hasAnalysis;
       if (updateData.lastChecked !== undefined) supabaseData.last_checked = updateData.lastChecked;
@@ -278,7 +278,7 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
 };
 
 // Delete a pulse and all its data
-export const deletePulse = async (id: string, userId: number = DEFAULT_USER_ID): Promise<boolean> => {
+export const deletePulse = async (id: string): Promise<boolean> => {
   return withFallback(
     async () => {
       // First delete all analyses for this pulse

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deletePulse } from '@/app/lib/pulses';
-import { isSupabaseConfigured } from '@/app/lib/supabase';
 
 // DELETE endpoint to remove a pulse and all related data
 export async function DELETE(

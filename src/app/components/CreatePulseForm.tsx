@@ -110,8 +110,8 @@ export default function CreatePulseForm() {
         // Redirect to the results page for this pulse
         console.log('Email sent (or processing), redirecting to results page');
         router.push(`/results/${newPulseId}`);
-      } catch (fetchError: any) {
-        if (fetchError.name === 'AbortError') {
+      } catch (fetchError: unknown) {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
           console.warn('Fetch aborted due to timeout');
           // Still redirect to results page
           router.push(`/results/${newPulseId}`);
@@ -119,9 +119,9 @@ export default function CreatePulseForm() {
         }
         throw fetchError;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error creating pulse:', err);
-      setError(err.message || 'An error occurred while creating the pulse');
+      setError(err instanceof Error ? err.message : 'An error occurred while creating the pulse');
       
       // If we have a pulseId, still allow going to results page after error
       if (pulseId) {
