@@ -1,26 +1,208 @@
 @import "tailwindcss";
 
+/* Dark mode colors (default) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ffffff;
+  --primary: #ff3b30;
+  --secondary: #121212;
+  --accent: #ff3b30;
+  --border: #333333;
+  --warning-bg: rgba(255, 59, 48, 0.1);
+  --card-bg: #121212;
+  --text-muted: #a0a0a0;
+  --hover-bg: #1e1e1e;
+  --prose-text: #e0e0e0;
+  --prose-heading: #ffffff;
+}
+
+/* Light mode colors */
+:root[data-theme="light"] {
+  --background: #f8f8f8;
+  --foreground: #333333;
+  --primary: #ff3b30;
+  --secondary: #ffffff;
+  --accent: #ff3b30;
+  --border: #e0e0e0;
+  --warning-bg: rgba(255, 59, 48, 0.1);
+  --card-bg: #ffffff;
+  --text-muted: #686868;
+  --hover-bg: #f0f0f0;
+  --prose-text: #333333;
+  --prose-heading: #000000;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Heartbeat animation */
+@keyframes heartbeat {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+}
+
+.pulse-dot {
+  background-color: var(--accent);
+  border-radius: 50%;
+  animation: heartbeat 1.5s infinite ease-in-out;
+}
+
+.heartbeat-line {
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,59,48,0) 0%, rgba(255,59,48,1) 50%, rgba(255,59,48,0) 100%);
+  position: relative;
+  overflow: visible;
+}
+
+.warning-box {
+  background-color: var(--warning-bg);
+  border: 1px solid var(--primary);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+/* Form styling */
+.input-field {
+  background-color: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: var(--foreground);
+  width: 100%;
+  transition: border-color 0.2s ease, background-color 0.3s ease;
+}
+
+.input-field:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: #e02d22;
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+/* Card background */
+.bg-secondary {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Muted text */
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* Hover background */
+.hover-bg {
+  transition: background-color 0.3s ease;
+}
+
+.hover-bg:hover {
+  background-color: var(--hover-bg);
+}
+
+/* Prose styling for AI analysis */
+.prose {
+  color: var(--prose-text);
+  transition: color 0.3s ease;
+}
+
+.prose h1, 
+.prose h2, 
+.prose h3, 
+.prose h4, 
+.prose h5, 
+.prose h6 {
+  color: var(--prose-heading);
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  transition: color 0.3s ease;
+}
+
+.prose p {
+  margin-bottom: 1em;
+}
+
+.prose ul, 
+.prose ol {
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.prose li {
+  margin-bottom: 0.5em;
+}
+
+.prose strong {
+  color: var(--prose-heading);
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Special styles for warning boxes in AI responses */
+.prose .warning {
+  background-color: var(--warning-bg);
+  border: 1px solid var(--primary);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
 }
