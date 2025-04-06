@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import HeartbeatAnimation from './HeartbeatAnimation';
 import { updatePulseResponseCount, getPulseById, deletePulse } from '@/app/lib/pulses';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
@@ -48,6 +48,42 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     checkUserId();
   }, [pulseId]);
   
+  // Function to analyze responses - moved up and memoized with useCallback
+  const analyzeResponses = useCallback(async (responsesToAnalyze = responses) => {
+    if (responsesToAnalyze.length === 0) {
+      return; // Don't show an error, just don't analyze
+    }
+    
+    setIsAnalyzing(true);
+    setError('');
+    
+    try {
+      const result = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          responses: responsesToAnalyze,
+          pulseId 
+        }),
+      });
+      
+      if (!result.ok) {
+        throw new Error('Failed to analyze responses');
+      }
+      
+      const data = await result.json();
+      setAnalysis(data.analysis);
+      
+    } catch (err) {
+      console.error('Error analyzing responses:', err);
+      setError('Failed to analyze responses');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [responses, pulseId]);
+  
   // Fetch responses when component mounts or periodically
   useEffect(() => {
     const fetchResponses = async () => {
@@ -62,7 +98,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         setResponses(data.responses || []);
         
         // Get existing pulse data from database or localStorage
-        const pulseData = await getPulseById(pulseId, userId);
+        const pulseData = await getPulseById(pulseId);
         const currentResponseCount = data.responses?.length || 0;
         
         // Check if the pulse has a stored analysis
@@ -127,43 +163,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     
     // Clean up interval on unmount
     return () => clearInterval(interval);
-  }, [pulseId, analysis, lastResponseCount, userId]);
-  
-  // Function to analyze responses
-  const analyzeResponses = async (responsesToAnalyze = responses) => {
-    if (responsesToAnalyze.length === 0) {
-      return; // Don't show an error, just don't analyze
-    }
-    
-    setIsAnalyzing(true);
-    setError('');
-    
-    try {
-      const result = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          responses: responsesToAnalyze,
-          pulseId 
-        }),
-      });
-      
-      if (!result.ok) {
-        throw new Error('Failed to analyze responses');
-      }
-      
-      const data = await result.json();
-      setAnalysis(data.analysis);
-      
-    } catch (err) {
-      console.error('Error analyzing responses:', err);
-      setError('Failed to analyze responses');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  }, [pulseId, analysis, lastResponseCount, userId, analyzeResponses]);
   
   // Function to delete the pulse
   const handleDeletePulse = async () => {
@@ -182,7 +182,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       // For client-side, also attempt to clean up localStorage directly
       // This provides a fallback if the server-side deletion fails
       try {
-        await deletePulse(pulseId, userId);
+        await deletePulse(pulseId);
       } catch (clientError) {
         console.error('Client-side deletion error:', clientError);
         // Continue with the flow even if this fails
