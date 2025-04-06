@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 interface SurveyFormProps {
@@ -10,7 +9,6 @@ interface SurveyFormProps {
 }
 
 export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
-  const router = useRouter();
   const [response, setResponse] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');

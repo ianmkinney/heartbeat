@@ -23,7 +23,7 @@ export default async function SurveyPage({ params }: SurveyPageProps) {
             Heartbeat
           </h1>
           <p className="text-xl opacity-80">
-            We'd like to know how you're doing
+            We&apos;d like to know how you&apos;re doing
           </p>
         </div>
         
