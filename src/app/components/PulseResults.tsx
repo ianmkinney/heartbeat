@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import HeartbeatAnimation from './HeartbeatAnimation';
-import { updatePulseResponseCount, getPulseById, deletePulse } from '@/app/lib/pulses';
+import { getPulseById, deletePulse } from '@/app/lib/pulses';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { useRouter } from 'next/navigation';
 

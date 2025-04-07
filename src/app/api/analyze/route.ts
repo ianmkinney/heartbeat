@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
     
     // First check if we already have an analysis for this pulse
-    let existingAnalysis = '';
+    const existingAnalysis = '';
     
     if (isSupabaseConfigured) {
       try {
@@ -186,8 +186,8 @@ export async function POST(req: NextRequest) {
       // Handle array of content blocks
       if (Array.isArray(data.content)) {
         const textBlocks = data.content
-          .filter((block: any) => block.type === 'text')
-          .map((block: any) => block.text);
+          .filter((block: {type: string}) => block.type === 'text')
+          .map((block: {type: string, text: string}) => block.text);
         
         analysis = textBlocks.join('\n');
       } 
