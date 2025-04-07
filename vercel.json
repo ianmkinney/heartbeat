@@ -5,7 +5,7 @@
   "devCommand": "next dev",
   "outputDirectory": ".next",
   "functions": {
-    "api/analyze/route": {
+    "src/app/api/**/*.ts": {
       "maxDuration": 60
     }
   }
