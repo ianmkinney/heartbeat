@@ -24,9 +24,6 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // First check if we already have an analysis for this pulse
-    const existingAnalysis = '';
-    
     if (isSupabaseConfigured) {
       try {
         // Check if an analysis already exists in Supabase

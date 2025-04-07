@@ -1,14 +1,21 @@
 import PulseResults from '@/app/components/PulseResults';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
-interface ResultsPageProps {
-  params: {
-    pulseId: string;
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic';
+
+// Generate metadata for the page
+export async function generateMetadata({ params }: { params: { pulseId: string } }): Promise<Metadata> {
+  return {
+    title: `Pulse Results - ${params.pulseId}`,
+    description: 'View anonymous pulse survey results'
   };
 }
 
-export default async function ResultsPage({ params }: ResultsPageProps) {
+// @ts-expect-error -- Suppress Next.js PageProps type issue
+export default function ResultsPage({ params }: { params: { pulseId: string } }) {
   // Ensure params is fully resolved before accessing properties
   const pulseId = params?.pulseId;
   

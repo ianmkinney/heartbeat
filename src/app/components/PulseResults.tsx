@@ -9,9 +9,6 @@ interface PulseResultsProps {
   pulseId: string;
 }
 
-// Default user ID
-const DEFAULT_USER_ID = 1;
-
 export default function PulseResults({ pulseId }: PulseResultsProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -20,16 +17,10 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
   const [analysis, setAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hasAnalysis, setHasAnalysis] = useState(false);
-  const [userId, setUserId] = useState(DEFAULT_USER_ID);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Add useEffect for initial load
-  useEffect(() => {
-    fetchPulseData();
-  }, []);
-
-  const fetchPulseData = async () => {
+  const fetchPulseData = useCallback(async () => {
     if (isLoading) return; // Prevent multiple simultaneous fetches
     
     try {
@@ -73,7 +64,12 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pulseId, isLoading]);
+
+  // Add useEffect for initial load
+  useEffect(() => {
+    fetchPulseData();
+  }, [fetchPulseData]);
 
   // Function to analyze responses - only called manually
   const analyzeResponses = useCallback(async () => {
@@ -115,7 +111,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
             if (errorData && errorData.error) {
               errorMessage = errorData.error;
             }
-          } catch (parseError) {
+          } catch {
             errorMessage = `Failed to analyze responses: ${result.status}`;
           }
           

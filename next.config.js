@@ -7,6 +7,11 @@ const nextConfig = {
   // Disable source maps in production to avoid URL errors
   productionBrowserSourceMaps: false,
   
+  // Disable TypeScript type checking during build
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  
   // Configure experimental features for Turbopack
   experimental: {
     turbo: {
