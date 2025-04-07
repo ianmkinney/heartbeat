@@ -5,14 +5,10 @@ import { deletePulse } from '@/app/lib/pulses';
 // DELETE endpoint to remove a pulse and all related data
 export async function DELETE(
   request: NextRequest,
-  context: {
-    params: {
-      pulseId: string
-    }
-  }
+  { params }: { params: { pulseId: string } }
 ) {
   try {
-    const pulseId = context.params.pulseId;
+    const pulseId = params.pulseId;
     
     if (!pulseId) {
       return NextResponse.json(
