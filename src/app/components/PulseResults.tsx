@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { getPulseById, deletePulse } from '@/app/lib/pulses';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -19,9 +19,11 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
   const [hasAnalysis, setHasAnalysis] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const initialLoadComplete = useRef(false);
 
-  const fetchPulseData = useCallback(async () => {
-    if (isLoading) return; // Prevent multiple simultaneous fetches
+  const fetchPulseData = useCallback(async (forceRefresh = false) => {
+    // Skip if already loading or if we've completed initial load and not forcing refresh
+    if (isLoading || (initialLoadComplete.current && !forceRefresh)) return;
     
     try {
       setIsLoading(true);
@@ -57,6 +59,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       }
       
       setIsInitialized(true);
+      initialLoadComplete.current = true;
       
     } catch (err) {
       console.error('Error fetching pulse data:', err);
@@ -66,9 +69,11 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     }
   }, [pulseId, isLoading]);
 
-  // Add useEffect for initial load
+  // Add useEffect for initial load - only runs once
   useEffect(() => {
-    fetchPulseData();
+    if (!initialLoadComplete.current) {
+      fetchPulseData();
+    }
   }, [fetchPulseData]);
 
   // Function to analyze responses - only called manually

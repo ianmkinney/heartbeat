@@ -8,8 +8,11 @@ export const dynamic = 'force-dynamic';
 
 // Generate metadata for the page
 export async function generateMetadata({ params }: { params: { pulseId: string } }): Promise<Metadata> {
+  // Wait for params to be resolved
+  const pulseId = await Promise.resolve(params.pulseId);
+  
   return {
-    title: `Pulse Results - ${params.pulseId}`,
+    title: `Pulse Results - ${pulseId}`,
     description: 'View anonymous pulse survey results'
   };
 }
