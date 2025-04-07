@@ -4,10 +4,12 @@ import { deletePulse } from '@/app/lib/pulses';
 // DELETE endpoint to remove a pulse and all related data
 export async function DELETE(
   request: Request,
-  { params }: { params: { pulseId: string } }
 ) {
   try {
-    const pulseId = params.pulseId;
+    // Extract pulseId from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const pulseId = pathParts[pathParts.length - 1];
     
     if (!pulseId) {
       return NextResponse.json(
