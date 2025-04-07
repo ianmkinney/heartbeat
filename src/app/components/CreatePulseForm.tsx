@@ -62,7 +62,7 @@ export default function CreatePulseForm() {
       
       // Save the pulse to database or local storage
       try {
-        await createPulse(newPulseId, emailList);
+        await createPulse(newPulseId, emailList, undefined, emailList);
       } catch (saveError) {
         console.error('Error saving pulse data:', saveError);
         // Continue anyway since we can still send emails

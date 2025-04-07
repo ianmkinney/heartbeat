@@ -21,6 +21,9 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
   const [hasAnalysis, setHasAnalysis] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [emailsList, setEmailsList] = useState<string[]>([]);
+  const [sentEmailsList, setSentEmailsList] = useState<string[]>([]);
+  const [pendingEmailsList, setPendingEmailsList] = useState<string[]>([]);
   const initialLoadComplete = useRef(false);
 
   const fetchPulseData = useCallback(async (forceRefresh = false) => {
@@ -33,6 +36,12 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       
       // 1. Get the pulse data first to check if analysis exists
       const pulseData = await getPulseById(pulseId);
+      
+      if (pulseData) {
+        setEmailsList(pulseData.emails || []);
+        setSentEmailsList(pulseData.sentEmails || []);
+        setPendingEmailsList(pulseData.pendingEmails || []);
+      }
       
       // 2. Fetch responses
       if (isSupabaseConfigured) {
@@ -197,6 +206,45 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     fetchPulseData(true);
   }, [fetchPulseData]);
 
+  // Function to send pending emails
+  const sendPendingEmail = useCallback(async () => {
+    if (pendingEmailsList.length === 0) {
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      // Call the email API with the first pending email
+      const response = await fetch('/api/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          emails: pendingEmailsList,
+          pulseId 
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email');
+      }
+      
+      console.log('Email sent successfully:', data);
+      
+      // Refresh the data
+      fetchPulseData(true);
+      
+    } catch (err) {
+      console.error('Error sending pending email:', err);
+      setError('Failed to send email');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pendingEmailsList, pulseId, fetchPulseData]);
+
   if (!isInitialized) {
     return (
       <div className="bg-secondary rounded-lg p-6 text-center">
@@ -248,6 +296,24 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         :root[data-theme="light"] .prose:not(.prose-invert) li {
           color: #333333 !important;
         }
+        /* Fix warning sections in light mode */
+        :root[data-theme="light"] .warning {
+          background-color: rgba(255, 0, 0, 0.1) !important;
+          border: 1px solid #ff6b6b !important;
+          padding: 1rem !important;
+          margin: 1rem 0 !important;
+          color: #333333 !important;
+        }
+        :root[data-theme="light"] .warning * {
+          color: #333333 !important;
+        }
+        /* Styles for dark mode warning sections */
+        .warning {
+          background-color: rgba(255, 0, 0, 0.1);
+          border: 1px solid #ff6b6b;
+          padding: 1rem;
+          margin: 1rem 0;
+        }
       `}</style>
 
       <div className="flex justify-between items-center mb-6">
@@ -277,6 +343,52 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
             {isDeleting ? 'Deleting...' : 'Delete Pulse'}
           </button>
         </div>
+      </div>
+      
+      {/* Emails section */}
+      <div className="mb-6 border border-gray-700 rounded-lg p-4">
+        <h3 className="text-lg font-bold mb-2">Email Recipients</h3>
+        <div className="flex justify-between items-center mb-2">
+          <div>
+            <span className="font-medium">Total: {emailsList.length} recipients</span>
+            <span className="mx-2">|</span>
+            <span className="text-green-500">{sentEmailsList.length} sent</span>
+            {pendingEmailsList.length > 0 && (
+              <>
+                <span className="mx-2">|</span>
+                <span className="text-yellow-500">{pendingEmailsList.length} pending</span>
+              </>
+            )}
+          </div>
+          {pendingEmailsList.length > 0 && (
+            <button
+              onClick={sendPendingEmail}
+              className="btn-primary btn-sm"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Sending...' : 'Send Next Email'}
+            </button>
+          )}
+        </div>
+
+        {emailsList.length > 0 && (
+          <div className="mt-3">
+            <h4 className="font-medium mb-1">Email Addresses:</h4>
+            <div className={`max-h-32 overflow-y-auto p-2 rounded ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`}>
+              {emailsList.map((email, idx) => (
+                <div key={idx} className="mb-1 flex items-center">
+                  <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>{email}</span>
+                  {sentEmailsList.includes(email) && (
+                    <span className="ml-2 text-xs bg-green-700 text-white px-2 py-0.5 rounded">Sent</span>
+                  )}
+                  {pendingEmailsList.includes(email) && (
+                    <span className="ml-2 text-xs bg-yellow-600 text-white px-2 py-0.5 rounded">Pending</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       
       <div className="mb-6">

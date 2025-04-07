@@ -108,6 +108,15 @@ export async function POST(req: NextRequest) {
       2. Key action items that might help address any concerns or issues mentioned.
       3. Any significant problem areas that need immediate attention.
       
+      EXTREMELY IMPORTANT: Maintain strict anonymity in your analysis:
+      - NEVER reference when someone joined the team, their tenure, or time-based identifiers
+      - NEVER include information that could identify specific individuals or roles
+      - NEVER mention unique situations that could be traced back to specific individuals
+      - NEVER reference gender, race, age, seniority, team assignments, or any demographic information
+      - NEVER include direct quotes that could identify someone
+      - Focus ONLY on themes, patterns, and general sentiments across responses
+      - Present all findings as general observations about the group as a whole
+      
       Important formatting requirements:
       - Format your response using HTML with appropriate elements (h1, h2, h3, p, ul, li, etc.)
       - For any warning sections or critical issues, wrap them in <div class="warning">...</div>
@@ -115,7 +124,6 @@ export async function POST(req: NextRequest) {
       - Use heading elements (h2, h3) for section titles 
       - Use paragraph <p> elements for normal text
       - Use lists (<ul>, <li>) for bullet points
-      - Do NOT include any identifying information in your analysis (names, specific roles, teams, gender, race, when they joined the team, anything that could link them to one team member, etc.)
       
       Your analysis will be displayed in a dark-themed UI where:
       - Normal text should be semantic HTML

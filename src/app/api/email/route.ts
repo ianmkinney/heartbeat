@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { sendPulseSurveyEmails } from '@/app/lib/email';
+import { updatePulse, getPulseById } from '@/app/lib/pulses';
 
 // Set a timeout for email operations - 10 seconds
 const EMAIL_TIMEOUT = 10000;
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    const { emails, pulseId } = body;
+    let { emails, pulseId } = body;
     
     // Validate inputs
     if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -62,29 +63,60 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Send emails using our email service with a timeout
+    // Check if this is a new pulse or a continuation
+    const existingPulse = await getPulseById(pulseId);
+    let sentEmails: string[] = existingPulse?.sentEmails || [];
+    let remainingEmails: string[] = emails;
+    
+    // If we have existing pulse data and pending emails, use those
+    if (existingPulse?.pendingEmails && existingPulse.pendingEmails.length > 0) {
+      remainingEmails = existingPulse.pendingEmails;
+    }
+    
+    // Only send the first email in the list
+    const emailToSend = remainingEmails[0];
+    const updatedRemainingEmails = remainingEmails.slice(1);
+    
+    // Update with one less pending email before sending
+    try {
+      await updatePulse(pulseId, {
+        pendingEmails: updatedRemainingEmails,
+        sentEmails: [...sentEmails, emailToSend]
+      });
+    } catch (updateError) {
+      console.error('Error updating pulse with pending emails:', updateError);
+      // Continue anyway to at least try sending the email
+    }
+
+    // Send single email
     try {
       const result = await withTimeout(
-        sendPulseSurveyEmails(emails, pulseId),
+        sendPulseSurveyEmails([emailToSend], pulseId),
         EMAIL_TIMEOUT
       );
       
-      console.log('Emails sent:', result);
+      console.log('Email sent:', result);
       
       // If we have an error but it's still marked as success (our fallback)
       if ('error' in result && result.error) {
         console.warn('Email operation completed with errors:', result.error);
       }
       
-      return NextResponse.json(result);
+      return NextResponse.json({
+        ...result,
+        remainingCount: updatedRemainingEmails.length,
+        pendingEmails: updatedRemainingEmails
+      });
     } catch (timeoutError) {
       console.error('Email operation timed out:', timeoutError);
       // Return a "success" response to prevent UI blocking
       return NextResponse.json({
         success: true,
         message: 'Email processing started but may be delayed',
-        sentCount: emails.length,
-        warning: 'Operation timed out, but emails may still be sent in the background',
+        sentCount: 1,
+        warning: 'Operation timed out, but email may still be sent in the background',
+        remainingCount: updatedRemainingEmails.length,
+        pendingEmails: updatedRemainingEmails
       });
     }
     

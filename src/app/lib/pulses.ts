@@ -7,6 +7,8 @@ export interface PulseData {
   user_id?: number;
   createdAt: string;
   emails: string[];
+  sentEmails?: string[];
+  pendingEmails?: string[];
   responseCount?: number;
   lastChecked?: string;
   hasAnalysis?: boolean;
@@ -63,12 +65,14 @@ const deletePulseFromStorage = (id: string): boolean => {
 const DEFAULT_USER_ID = 1;
 
 // Create a new pulse
-export const createPulse = async (id: string, emails: string[], userId: number = DEFAULT_USER_ID) => {
+export const createPulse = async (id: string, emails: string[], userId: number = DEFAULT_USER_ID, pendingEmails?: string[]) => {
   const newPulse: PulseData = {
     id,
     user_id: userId,
     createdAt: new Date().toISOString(),
     emails,
+    pendingEmails,
+    sentEmails: [],
     responseCount: 0,
     lastChecked: new Date().toISOString()
   };
@@ -83,6 +87,8 @@ export const createPulse = async (id: string, emails: string[], userId: number =
           user_id: newPulse.user_id,
           created_at: newPulse.createdAt,
           emails: newPulse.emails,
+          pending_emails: newPulse.pendingEmails,
+          sent_emails: newPulse.sentEmails,
           response_count: newPulse.responseCount,
           last_checked: newPulse.lastChecked,
           has_analysis: false
@@ -98,6 +104,8 @@ export const createPulse = async (id: string, emails: string[], userId: number =
         user_id: data.user_id,
         createdAt: data.created_at,
         emails: data.emails,
+        pendingEmails: data.pending_emails,
+        sentEmails: data.sent_emails,
         responseCount: data.response_count,
         lastChecked: data.last_checked,
         hasAnalysis: data.has_analysis
@@ -132,6 +140,8 @@ export const getAllPulses = async (userId: number = DEFAULT_USER_ID): Promise<Pu
       user_id: pulse.user_id,
       createdAt: pulse.created_at,
       emails: pulse.emails,
+      pendingEmails: pulse.pending_emails || [],
+      sentEmails: pulse.sent_emails || [],
       responseCount: pulse.response_count,
       lastChecked: pulse.last_checked,
       hasAnalysis: pulse.has_analysis
@@ -164,9 +174,12 @@ export const getPulseById = async (id: string): Promise<PulseData | undefined> =
         user_id: data.user_id,
         createdAt: data.created_at,
         emails: data.emails,
+        pendingEmails: data.pending_emails || [],
+        sentEmails: data.sent_emails || [],
         responseCount: data.response_count,
         lastChecked: data.last_checked,
-        hasAnalysis: data.has_analysis
+        hasAnalysis: data.has_analysis,
+        analysisContent: data.analysis_content
       } as PulseData;
     },
     () => {
@@ -192,6 +205,8 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
       if (updateData.responseCount !== undefined) supabaseData.response_count = updateData.responseCount;
       if (updateData.hasAnalysis !== undefined) supabaseData.has_analysis = updateData.hasAnalysis;
       if (updateData.lastChecked !== undefined) supabaseData.last_checked = updateData.lastChecked;
+      if (updateData.pendingEmails !== undefined) supabaseData.pending_emails = updateData.pendingEmails;
+      if (updateData.sentEmails !== undefined) supabaseData.sent_emails = updateData.sentEmails;
       
       // First check if pulse exists
       const { data: existingPulse, error: fetchError } = await supabase
@@ -246,6 +261,8 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
         user_id: updatedPulse.user_id,
         createdAt: updatedPulse.created_at,
         emails: updatedPulse.emails,
+        pendingEmails: updatedPulse.pending_emails || [],
+        sentEmails: updatedPulse.sent_emails || [],
         responseCount: updatedPulse.response_count,
         lastChecked: updatedPulse.last_checked,
         hasAnalysis: updatedPulse.has_analysis,
