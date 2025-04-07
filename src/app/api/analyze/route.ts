@@ -6,6 +6,25 @@ import { updatePulseResponseCount } from '@/app/lib/pulses';
 // Default user ID
 const DEFAULT_USER_ID = 1;
 
+// Timeout for fetch - 25 seconds to avoid the 30s function timeout
+const FETCH_TIMEOUT = 25000;
+
+// Add fetch with timeout function
+const fetchWithTimeout = async (url: string, options: RequestInit, timeout: number) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { responses, pulseId } = await req.json();
@@ -112,7 +131,8 @@ export async function POST(req: NextRequest) {
     
     while (retryCount <= MAX_RETRIES) {
       try {
-        response = await fetch('https://api.anthropic.com/v1/messages', {
+        // Use fetchWithTimeout to prevent hanging
+        response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -120,8 +140,8 @@ export async function POST(req: NextRequest) {
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: 'claude-3-opus-20240229',
-            max_tokens: 4000,
+            model: 'claude-3-haiku-20240307', // Use smaller, faster model
+            max_tokens: 2500, // Reduced token limit
             messages: [
               {
                 role: 'user',
@@ -129,14 +149,14 @@ export async function POST(req: NextRequest) {
               }
             ]
           })
-        });
+        }, FETCH_TIMEOUT);
         
         // If we got a 429 rate limit error, wait and retry
         if (response.status === 429) {
-          const retryAfter = response.headers.get('retry-after') || (Math.min(30, 2 ** retryCount));
+          const retryAfter = response.headers.get('retry-after') || (Math.min(10, 2 ** retryCount));
           console.log(`Rate limited (429). Retrying in ${retryAfter} seconds...`);
           
-          // Wait for the retry-after time or exponential backoff (max 30 seconds)
+          // Wait for the retry-after time or exponential backoff (max 10 seconds)
           await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter as string) * 1000));
           retryCount++;
           continue;
@@ -147,8 +167,17 @@ export async function POST(req: NextRequest) {
       } catch (fetchError) {
         console.error(`API fetch error (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, fetchError);
         
+        // Check for timeout (AbortError)
+        if (fetchError.name === 'AbortError') {
+          console.error('Claude API request timed out');
+          return NextResponse.json(
+            { error: 'Analysis request timed out. Please try with fewer responses.' },
+            { status: 408 }
+          );
+        }
+        
         if (retryCount < MAX_RETRIES) {
-          // Wait with exponential backoff (1s, 2s, 4s, etc.)
+          // Wait with exponential backoff (1s, 2s)
           await new Promise(resolve => setTimeout(resolve, 1000 * (2 ** retryCount)));
           retryCount++;
         } else {

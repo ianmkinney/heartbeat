@@ -3,5 +3,10 @@
   "buildCommand": "next build",
   "installCommand": "npm install",
   "devCommand": "next dev",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "functions": {
+    "api/analyze/route": {
+      "maxDuration": 60
+    }
+  }
 } 

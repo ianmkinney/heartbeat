@@ -26,6 +26,18 @@ const nextConfig = {
     NEXT_PUBLIC_BASE_URL: process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+  },
+  
+  // Serverless Function Configuration
+  serverRuntimeConfig: {
+    api: {
+      // Extended timeout for API routes (in seconds)
+      responseTimeout: 60,
+      // Reduce body parser size limit to speed up processing
+      bodyParser: {
+        sizeLimit: '1mb',
+      }
+    }
   }
 };
 
