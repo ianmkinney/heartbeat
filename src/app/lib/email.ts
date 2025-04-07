@@ -9,13 +9,15 @@ interface EmailResult {
 
 // Check if we have a valid Resend API key
 const apiKey = process.env.RESEND_API_KEY;
-const isTestMode = !apiKey || 
-  apiKey === 'REPLACE_WITH_YOUR_API_KEY' || 
-  apiKey === 're_YOUR_API_KEY_HERE' || 
-  apiKey === 'your_resend_api_key';
+// Ensure API key doesn't have newlines or extra whitespace
+const cleanApiKey = apiKey?.trim();
+const isTestMode = !cleanApiKey || 
+  cleanApiKey === 'REPLACE_WITH_YOUR_API_KEY' || 
+  cleanApiKey === 're_YOUR_API_KEY_HERE' || 
+  cleanApiKey === 'your_resend_api_key';
 
 // Initialize Resend only if a valid API key is provided
-const resend = !isTestMode && apiKey ? new Resend(apiKey) : null;
+const resend = !isTestMode && cleanApiKey ? new Resend(cleanApiKey) : null;
 
 // Mock email function for testing when no API key is provided
 async function sendMockEmail(to: string, subject: string, html: string): Promise<EmailResult> {
