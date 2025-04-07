@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { deletePulse } from '@/app/lib/pulses';
 
 // DELETE endpoint to remove a pulse and all related data
 export async function DELETE(
-  request: Request,
-  { params }: { params: { pulseId: string } }
+  request: NextRequest,
+  context: {
+    params: {
+      pulseId: string
+    }
+  }
 ) {
   try {
-    const pulseId = params.pulseId;
+    const pulseId = context.params.pulseId;
     
     if (!pulseId) {
       return NextResponse.json(

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { sendPulseSurveyEmails } from '@/app/lib/email';
 
 // Set a timeout for email operations - 10 seconds
@@ -24,7 +25,7 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
 // In a real implementation, you would integrate with a proper email service like SendGrid, Mailgun, etc.
 // This is a mock implementation for demonstration purposes
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     // Log request received
     console.log('Email API POST request received');
