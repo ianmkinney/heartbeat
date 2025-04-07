@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       - Use heading elements (h2, h3) for section titles 
       - Use paragraph <p> elements for normal text
       - Use lists (<ul>, <li>) for bullet points
-      - Do NOT include any identifying information in your analysis (names, specific roles, teams, gender, race, etc.)
+      - Do NOT include any identifying information in your analysis (names, specific roles, teams, gender, race, when they joined the team, anything that could link them to one team member, etc.)
       
       Your analysis will be displayed in a dark-themed UI where:
       - Normal text should be semantic HTML
