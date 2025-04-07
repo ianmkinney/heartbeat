@@ -16,6 +16,9 @@ const isTestMode = !cleanApiKey ||
   cleanApiKey === 're_YOUR_API_KEY_HERE' || 
   cleanApiKey === 'your_resend_api_key';
 
+// Get from email with fallback
+const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
 // Initialize Resend only if a valid API key is provided
 const resend = !isTestMode && cleanApiKey ? new Resend(cleanApiKey) : null;
 
@@ -44,7 +47,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     
     // Send the email using Resend
     const { data, error } = await resend.emails.send({
-      from: 'Heartbeat <onboarding@resend.dev>', // Replace with your verified domain when in production
+      from: `Heartbeat <${fromEmail}>`,
       to,
       subject,
       html,
