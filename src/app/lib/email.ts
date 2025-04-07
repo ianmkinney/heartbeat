@@ -1,14 +1,24 @@
 import { Resend } from 'resend';
 
-// Check if we have a Resend API key
-const apiKey = process.env.RESEND_API_KEY;
-const isTestMode = !apiKey || apiKey === 'REPLACE_WITH_YOUR_API_KEY' || apiKey === 're_YOUR_API_KEY_HERE' || apiKey === 'your_resend_api_key';
+// Define email result interface for type safety
+interface EmailResult {
+  success: boolean;
+  messageId: string;
+  error?: string;
+}
 
-// Initialize Resend or use mock implementation
-const resend = apiKey && !isTestMode ? new Resend(apiKey) : null;
+// Check if we have a valid Resend API key
+const apiKey = process.env.RESEND_API_KEY;
+const isTestMode = !apiKey || 
+  apiKey === 'REPLACE_WITH_YOUR_API_KEY' || 
+  apiKey === 're_YOUR_API_KEY_HERE' || 
+  apiKey === 'your_resend_api_key';
+
+// Initialize Resend only if a valid API key is provided
+const resend = !isTestMode && apiKey ? new Resend(apiKey) : null;
 
 // Mock email function for testing when no API key is provided
-async function sendMockEmail(to: string, subject: string, html: string) {
+async function sendMockEmail(to: string, subject: string, html: string): Promise<EmailResult> {
   console.log('MOCK EMAIL MODE - No Resend API key provided');
   console.log('Would send email to:', to);
   console.log('Subject:', subject);
@@ -18,19 +28,16 @@ async function sendMockEmail(to: string, subject: string, html: string) {
   return {
     success: true,
     messageId: `mock_${Date.now()}`,
+    error: undefined,
   };
 }
 
-export async function sendEmail(to: string, subject: string, html: string) {
+export async function sendEmail(to: string, subject: string, html: string): Promise<EmailResult> {
   try {
     // If in test mode, use mock email
-    if (isTestMode) {
+    if (isTestMode || !resend) {
       console.log('Using mock email - set RESEND_API_KEY in .env for real emails');
       return await sendMockEmail(to, subject, html);
-    }
-    
-    if (!resend) {
-      throw new Error('Resend client not initialized. Please check your API key.');
     }
     
     // Send the email using Resend

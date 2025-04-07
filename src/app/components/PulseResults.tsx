@@ -191,13 +191,19 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     }
   };
 
+  // Add an event handler wrapper for the button clicks
+  const handleRefreshClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    fetchPulseData(true);
+  }, [fetchPulseData]);
+
   if (!isInitialized) {
     return (
       <div className="bg-secondary rounded-lg p-6 text-center">
         <h2 className="text-xl font-bold mb-4">Pulse Responses</h2>
         <p className="mb-4">Click refresh to load responses</p>
         <button 
-          onClick={fetchPulseData}
+          onClick={handleRefreshClick}
           className="btn-primary"
           disabled={isLoading}
         >
@@ -213,7 +219,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         <h2 className="text-xl font-bold mb-4">Error</h2>
         <p>{error}</p>
         <button 
-          onClick={fetchPulseData}
+          onClick={handleRefreshClick}
           className="mt-4 btn-primary"
         >
           Try Again
@@ -248,7 +254,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         <h2 className="text-xl font-bold">Pulse Responses</h2>
         <div className="flex space-x-4">
           <button 
-            onClick={fetchPulseData}
+            onClick={handleRefreshClick}
             className="btn-secondary text-sm"
             disabled={isLoading}
           >
