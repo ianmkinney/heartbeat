@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    let { emails, pulseId } = body;
+    const { emails, pulseId } = body;
     
     // Validate inputs
     if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     
     // Check if this is a new pulse or a continuation
     const existingPulse = await getPulseById(pulseId);
-    let sentEmails: string[] = existingPulse?.sentEmails || [];
+    const sentEmails: string[] = existingPulse?.sentEmails || [];
     let remainingEmails: string[] = emails;
     
     // If we have existing pulse data and pending emails, use those
