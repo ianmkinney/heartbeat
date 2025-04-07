@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { updatePulseResponseCount } from '@/app/lib/pulses';
 
@@ -8,7 +8,7 @@ const DEFAULT_USER_ID = 1;
 // In-memory storage fallback for when Supabase is not configured
 const surveyResponses: Record<string, Array<{ response: string, timestamp: string }>> = {};
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const { pulseId, response, respondentId } = await req.json();
     
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const pulseId = url.searchParams.get('pulseId');

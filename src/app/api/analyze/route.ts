@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { updatePulseResponseCount } from '@/app/lib/pulses';
 
 // Default user ID
 const DEFAULT_USER_ID = 1;
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const { responses, pulseId } = await req.json();
     
