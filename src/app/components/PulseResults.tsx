@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { getPulseById, deletePulse } from '@/app/lib/pulses';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@/app/providers/ThemeProvider';
 
 interface PulseResultsProps {
   pulseId: string;
@@ -11,6 +12,7 @@ interface PulseResultsProps {
 
 export default function PulseResults({ pulseId }: PulseResultsProps) {
   const router = useRouter();
+  const { theme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [responses, setResponses] = useState<Array<{ response: string, timestamp: string }>>([]);
@@ -222,6 +224,26 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
   
   return (
     <div className="bg-secondary rounded-lg p-6">
+      <style jsx global>{`
+        /* Force black text in light mode for prose content */
+        :root[data-theme="light"] .prose:not(.prose-invert) {
+          color: #000000 !important;
+        }
+        :root[data-theme="light"] .prose:not(.prose-invert) h1,
+        :root[data-theme="light"] .prose:not(.prose-invert) h2,
+        :root[data-theme="light"] .prose:not(.prose-invert) h3,
+        :root[data-theme="light"] .prose:not(.prose-invert) h4,
+        :root[data-theme="light"] .prose:not(.prose-invert) h5,
+        :root[data-theme="light"] .prose:not(.prose-invert) h6,
+        :root[data-theme="light"] .prose:not(.prose-invert) strong {
+          color: #000000 !important;
+        }
+        :root[data-theme="light"] .prose:not(.prose-invert) p,
+        :root[data-theme="light"] .prose:not(.prose-invert) li {
+          color: #333333 !important;
+        }
+      `}</style>
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold">Pulse Responses</h2>
         <div className="flex space-x-4">
@@ -261,7 +283,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         <div className="mb-6">
           <h3 className="text-lg font-bold mb-2">AI Analysis</h3>
           <div 
-            className="prose prose-invert max-w-none"
+            className={`prose ${theme === 'dark' ? 'prose-invert' : ''} max-w-none`}
             dangerouslySetInnerHTML={{ __html: analysis }}
           />
         </div>
