@@ -24,6 +24,33 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    // First check if we already have an analysis for this pulse
+    let existingAnalysis = '';
+    
+    if (isSupabaseConfigured) {
+      try {
+        // Check if an analysis already exists in Supabase
+        const { data: analysisData, error: analysisError } = await supabase
+          .from('analyses')
+          .select('content')
+          .eq('pulse_id', pulseId)
+          .single();
+          
+        if (!analysisError && analysisData?.content) {
+          console.log('Using existing analysis from database for pulse', pulseId);
+          return NextResponse.json({
+            success: true,
+            analysis: analysisData.content,
+            responseCount: responses.length,
+            isExisting: true
+          });
+        }
+      } catch (dbError) {
+        console.error('Error checking for existing analysis:', dbError);
+        // Continue with generating a new analysis
+      }
+    }
+    
     // Usually we would access the API key from environment variables
     const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || 'your-api-key';
     
@@ -81,38 +108,100 @@ export async function POST(req: NextRequest) {
       - Warning text should be in a red-bordered box
     `;
     
-    // Call the Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-opus-20240229',
-        max_tokens: 4000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-    });
+    // Call the Claude API with retry logic
+    const MAX_RETRIES = 1; // Reduced from 2 to avoid excessive retries
+    let retryCount = 0;
+    let response;
     
-    if (!response.ok) {
-      const errorData = await response.json();
+    while (retryCount <= MAX_RETRIES) {
+      try {
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': CLAUDE_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-opus-20240229',
+            max_tokens: 4000,
+            messages: [
+              {
+                role: 'user',
+                content: prompt
+              }
+            ]
+          })
+        });
+        
+        // If we got a 429 rate limit error, wait and retry
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('retry-after') || (Math.min(30, 2 ** retryCount));
+          console.log(`Rate limited (429). Retrying in ${retryAfter} seconds...`);
+          
+          // Wait for the retry-after time or exponential backoff (max 30 seconds)
+          await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter as string) * 1000));
+          retryCount++;
+          continue;
+        }
+        
+        // For other errors or success, break out of the retry loop
+        break;
+      } catch (fetchError) {
+        console.error(`API fetch error (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, fetchError);
+        
+        if (retryCount < MAX_RETRIES) {
+          // Wait with exponential backoff (1s, 2s, 4s, etc.)
+          await new Promise(resolve => setTimeout(resolve, 1000 * (2 ** retryCount)));
+          retryCount++;
+        } else {
+          throw fetchError; // Rethrow after max retries
+        }
+      }
+    }
+    
+    if (!response || !response.ok) {
+      const errorMessage = response ? await response.text() : 'No response';
+      console.error(`Claude API error after ${retryCount} retries:`, errorMessage);
+      
+      if (response?.status === 429) {
+        return NextResponse.json(
+          { error: 'Claude API rate limit exceeded. Please try again later.' },
+          { status: 429 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: errorData },
-        { status: response.status }
+        { error: 'Failed to analyze responses' },
+        { status: response?.status || 500 }
       );
     }
     
     const data = await response.json();
     
-    // Extract Claude's analysis from the response
-    const analysis = data.content?.[0]?.text || 'No analysis available';
+    // Extract Claude's analysis from the response - fix for Claude 3 API format
+    let analysis = 'No analysis available';
+    
+    if (data && data.content) {
+      // Handle array of content blocks
+      if (Array.isArray(data.content)) {
+        const textBlocks = data.content
+          .filter((block: any) => block.type === 'text')
+          .map((block: any) => block.text);
+        
+        analysis = textBlocks.join('\n');
+      } 
+      // Handle single content string
+      else if (typeof data.content === 'string') {
+        analysis = data.content;
+      }
+    }
+    // Old API format where content might be nested inside a message
+    else if (data && data.message && data.message.content) {
+      analysis = data.message.content;
+    }
+    
+    console.log('Analysis extracted:', analysis.substring(0, 100) + '...');
     
     // Store the analysis in Supabase if configured
     if (isSupabaseConfigured) {

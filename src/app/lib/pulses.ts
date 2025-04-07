@@ -116,37 +116,30 @@ export const createPulse = async (id: string, emails: string[], userId: number =
 
 // Get all pulses, sorted by most recent first
 export const getAllPulses = async (userId: number = DEFAULT_USER_ID): Promise<PulseData[]> => {
-  return withFallback(
-    async () => {
-      // Get from Supabase
-      const { data, error } = await supabase
-        .from('pulses')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-        
-      if (error) throw error;
+  try {
+    // Get from Supabase only
+    const { data, error } = await supabase
+      .from('pulses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
       
-      // Convert from Supabase format to our app format
-      return data.map(pulse => ({
-        id: pulse.id,
-        user_id: pulse.user_id,
-        createdAt: pulse.created_at,
-        emails: pulse.emails,
-        responseCount: pulse.response_count,
-        lastChecked: pulse.last_checked,
-        hasAnalysis: pulse.has_analysis
-      })) as PulseData[];
-    },
-    () => {
-      // Fallback to localStorage
-      const pulses = getPulsesFromStorage();
-      return Object.values(pulses).sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-    },
-    'Failed to fetch pulses from database'
-  );
+    if (error) throw error;
+    
+    // Convert from Supabase format to our app format
+    return data.map(pulse => ({
+      id: pulse.id,
+      user_id: pulse.user_id,
+      createdAt: pulse.created_at,
+      emails: pulse.emails,
+      responseCount: pulse.response_count,
+      lastChecked: pulse.last_checked,
+      hasAnalysis: pulse.has_analysis
+    })) as PulseData[];
+  } catch (error) {
+    console.error('Failed to fetch pulses from Supabase:', error);
+    return []; // Return empty array instead of falling back to localStorage
+  }
 };
 
 // Get a specific pulse by ID

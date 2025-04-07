@@ -1,41 +1,62 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { getAllPulses, PulseData, deletePulse } from '@/app/lib/pulses';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { PulseData, deletePulse } from '@/app/lib/pulses';
 import HeartbeatAnimation from './HeartbeatAnimation';
+import { isSupabaseConfigured } from '@/app/lib/supabase';
+import { supabase } from '@/app/lib/supabase';
 
 export default function PulseDashboard() {
+  const router = useRouter();
   const [pulses, setPulses] = useState<PulseData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  // Add useEffect for initial load
   useEffect(() => {
-    // Load pulses on component mount and periodically
-    const loadPulses = async () => {
-      try {
-        const loadedPulses = await getAllPulses();
-        setPulses(loadedPulses);
-      } catch (error) {
-        console.error('Error loading pulses:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadPulses();
-    
-    // Refresh every 30 seconds to check for updates
-    const interval = setInterval(loadPulses, 30000);
-    
-    // Cleanup interval on unmount
-    return () => clearInterval(interval);
+    fetchPulses();
   }, []);
+
+  const fetchPulses = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (isSupabaseConfigured) {
+        const { data: pulsesData, error: pulsesError } = await supabase
+          .from('pulses')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (pulsesError) throw pulsesError;
+        
+        setPulses(pulsesData.map(pulse => ({
+          id: pulse.id,
+          user_id: pulse.user_id,
+          createdAt: pulse.created_at,
+          emails: pulse.emails,
+          responseCount: pulse.response_count,
+          lastChecked: pulse.last_checked,
+          hasAnalysis: pulse.has_analysis,
+          analysisContent: pulse.analysis_content
+        })));
+      } else {
+        setPulses([]);
+      }
+    } catch (err) {
+      console.error('Error fetching pulses:', err);
+      setError('Failed to load pulses');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Function to handle pulse deletion
   const handleDeletePulse = async (e: React.MouseEvent, pulseId: string) => {
-    e.preventDefault(); // Prevent navigation to pulse page
-    e.stopPropagation(); // Prevent event bubbling
+    e.preventDefault();
+    e.stopPropagation();
     
     if (!confirm('Are you sure you want to delete this pulse? This cannot be undone.')) {
       return;
@@ -44,12 +65,10 @@ export default function PulseDashboard() {
     setDeletingId(pulseId);
     
     try {
-      // Call the API to delete the pulse
       const response = await fetch(`/api/pulse/${pulseId}`, {
         method: 'DELETE',
       });
       
-      // Also attempt local deletion
       try {
         await deletePulse(pulseId);
       } catch (error) {
@@ -60,7 +79,6 @@ export default function PulseDashboard() {
         throw new Error('Failed to delete pulse');
       }
       
-      // Remove the deleted pulse from the state
       setPulses(pulses.filter(pulse => pulse.id !== pulseId));
       
     } catch (error) {
@@ -70,6 +88,21 @@ export default function PulseDashboard() {
       setDeletingId(null);
     }
   };
+
+  if (error) {
+    return (
+      <div className="bg-secondary rounded-lg p-6 text-center">
+        <h2 className="text-xl font-bold mb-4">Error</h2>
+        <p className="text-red-500 mb-4">{error}</p>
+        <button 
+          onClick={fetchPulses}
+          className="btn-primary"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -84,21 +117,38 @@ export default function PulseDashboard() {
     return (
       <div className="bg-secondary rounded-lg p-6 text-center">
         <h2 className="text-xl font-bold mb-4">Recent Pulses</h2>
-        <p className="opacity-80 mb-4">No pulses have been created yet</p>
-        <p>Create your first pulse to get started!</p>
+        <p className="opacity-80 mb-4">Click refresh to load pulses</p>
+        <button 
+          onClick={fetchPulses}
+          className="btn-primary"
+        >
+          Refresh
+        </button>
       </div>
     );
   }
 
   return (
     <div className="bg-secondary rounded-lg p-6">
-      <h2 className="text-xl font-bold mb-4">Recent Pulses</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Recent Pulses</h2>
+        <button 
+          onClick={fetchPulses}
+          className="btn-secondary text-sm"
+          disabled={isLoading}
+        >
+          {isLoading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
       <div className="space-y-4">
         {pulses.map((pulse) => (
           <div key={pulse.id} className="relative border border-gray-700 hover:border-primary rounded-lg transition duration-300 overflow-hidden">
-            <Link 
-              href={`/results/${pulse.id}`}
-              className="block p-4"
+            <div 
+              onClick={() => {
+                // Only navigate, don't fetch data
+                router.push(`/results/${pulse.id}`);
+              }}
+              className="block p-4 cursor-pointer"
             >
               <div className="flex justify-between items-center">
                 <div>
@@ -123,7 +173,7 @@ export default function PulseDashboard() {
                   )}
                 </div>
               </div>
-            </Link>
+            </div>
             <button
               onClick={(e) => handleDeletePulse(e, pulse.id)}
               disabled={deletingId === pulse.id}

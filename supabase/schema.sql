@@ -1,5 +1,11 @@
 -- Heartbeat Schema for Supabase
 
+-- Drop existing tables if they exist (in correct order due to foreign key constraints)
+DROP TABLE IF EXISTS analyses;
+DROP TABLE IF EXISTS responses;
+DROP TABLE IF EXISTS pulses;
+DROP TABLE IF EXISTS heartbeat_users;
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -24,7 +30,8 @@ CREATE TABLE pulses (
   emails JSONB NOT NULL, -- Array of email addresses
   response_count INTEGER DEFAULT 0,
   last_checked TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  has_analysis BOOLEAN DEFAULT false
+  has_analysis BOOLEAN DEFAULT false,
+  analysis_content TEXT -- HTML content of the analysis
 );
 
 -- Responses table - Stores anonymous responses to pulses

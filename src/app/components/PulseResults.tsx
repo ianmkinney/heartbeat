@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import HeartbeatAnimation from './HeartbeatAnimation';
 import { updatePulseResponseCount, getPulseById, deletePulse } from '@/app/lib/pulses';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
@@ -15,156 +15,149 @@ const DEFAULT_USER_ID = 1;
 
 export default function PulseResults({ pulseId }: PulseResultsProps) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [responses, setResponses] = useState<Array<{ response: string, timestamp: string }>>([]);
   const [analysis, setAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [lastResponseCount, setLastResponseCount] = useState(0);
+  const [hasAnalysis, setHasAnalysis] = useState(false);
   const [userId, setUserId] = useState(DEFAULT_USER_ID);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Check for userId when component mounts
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Add useEffect for initial load
   useEffect(() => {
-    const checkUserId = async () => {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase
-            .from('heartbeat_users')
-            .select('user_id')
-            .eq('id', pulseId)
-            .single();
-            
-          if (!error && data && data.user_id) {
-            setUserId(data.user_id);
-          }
-        } catch (err) {
-          console.error('Error fetching user ID:', err);
-          // Continue with default user ID
-        }
-      }
-    };
+    fetchPulseData();
+  }, []);
+
+  const fetchPulseData = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous fetches
     
-    checkUserId();
-  }, [pulseId]);
-  
-  // Function to analyze responses - moved up and memoized with useCallback
-  const analyzeResponses = useCallback(async (responsesToAnalyze = responses) => {
-    if (responsesToAnalyze.length === 0) {
-      return; // Don't show an error, just don't analyze
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      // 1. Get the pulse data first to check if analysis exists
+      const pulseData = await getPulseById(pulseId);
+      
+      // 2. Fetch responses
+      if (isSupabaseConfigured) {
+        const { data: responsesData, error: responsesError } = await supabase
+          .from('responses')
+          .select('response, timestamp')
+          .eq('pulse_id', pulseId)
+          .order('timestamp', { ascending: false });
+          
+        if (responsesError) throw responsesError;
+        
+        setResponses(responsesData.map(item => ({
+          response: item.response,
+          timestamp: item.timestamp
+        })));
+      } else {
+        setResponses([]);
+      }
+      
+      // 3. Check if we already have analysis stored
+      if (pulseData?.hasAnalysis && pulseData?.analysisContent) {
+        setAnalysis(pulseData.analysisContent);
+        setHasAnalysis(true);
+      } else {
+        setHasAnalysis(false);
+      }
+      
+      setIsInitialized(true);
+      
+    } catch (err) {
+      console.error('Error fetching pulse data:', err);
+      setError('Failed to load pulse data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to analyze responses - only called manually
+  const analyzeResponses = useCallback(async () => {
+    if (responses.length === 0) {
+      return;
     }
     
     setIsAnalyzing(true);
     setError('');
     
-    try {
-      const result = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          responses: responsesToAnalyze,
-          pulseId 
-        }),
-      });
-      
-      if (!result.ok) {
-        throw new Error('Failed to analyze responses');
-      }
-      
-      const data = await result.json();
-      setAnalysis(data.analysis);
-      
-    } catch (err) {
-      console.error('Error analyzing responses:', err);
-      setError('Failed to analyze responses');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [responses, pulseId]);
-  
-  // Fetch responses when component mounts or periodically
-  useEffect(() => {
-    const fetchResponses = async () => {
+    const MAX_RETRIES = 2;
+    let retryCount = 0;
+    let shouldRetry = true;
+    
+    while (shouldRetry && retryCount <= MAX_RETRIES) {
       try {
-        const result = await fetch(`/api/survey?pulseId=${pulseId}`);
+        if (retryCount > 0) {
+          const delayMs = Math.min(10000, 1000 * (2 ** retryCount));
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        
+        const result = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            responses,
+            pulseId 
+          }),
+        });
         
         if (!result.ok) {
-          throw new Error('Failed to fetch responses');
+          const responseText = await result.text();
+          let errorMessage = 'Failed to analyze responses';
+          
+          try {
+            const errorData = JSON.parse(responseText);
+            if (errorData && errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (parseError) {
+            errorMessage = `Failed to analyze responses: ${result.status}`;
+          }
+          
+          if (result.status === 429) {
+            errorMessage = 'The AI service is busy. Please wait a moment and try again.';
+            if (retryCount < MAX_RETRIES) {
+              retryCount++;
+              continue;
+            }
+          }
+          
+          throw new Error(errorMessage);
         }
         
         const data = await result.json();
-        setResponses(data.responses || []);
         
-        // Get existing pulse data from database or localStorage
-        const pulseData = await getPulseById(pulseId);
-        const currentResponseCount = data.responses?.length || 0;
-        
-        // Check if the pulse has a stored analysis
-        if (pulseData?.hasAnalysis && pulseData?.analysisContent && !analysis) {
-          // Use the stored analysis if available
-          setAnalysis(pulseData.analysisContent);
-        } else if (isSupabaseConfigured && !analysis) {
-          // Try to fetch analysis from Supabase
-          try {
-            const { data: analysisData, error: analysisError } = await supabase
-              .from('analyses')
-              .select('content')
-              .eq('pulse_id', pulseId)
-              .single();
-              
-            if (!analysisError && analysisData?.content) {
-              setAnalysis(analysisData.content);
-              
-              // Update pulse to indicate it has an analysis
-              await updatePulseResponseCount(
-                pulseId, 
-                currentResponseCount, 
-                true, 
-                analysisData.content,
-                userId
-              );
-            }
-          } catch (dbError) {
-            console.error('Error fetching analysis from Supabase:', dbError);
-          }
+        if (!data.analysis) {
+          throw new Error('No analysis returned from API');
         }
         
-        // Update pulse data if response count changed
-        if (pulseData && currentResponseCount !== pulseData.responseCount) {
-          await updatePulseResponseCount(
-            pulseId, 
-            currentResponseCount, 
-            !!analysis || pulseData.hasAnalysis, 
-            analysis || pulseData.analysisContent,
-            userId
-          );
-        }
+        // Just update the local state without triggering any fetches
+        setAnalysis(data.analysis);
+        setHasAnalysis(true);
+        shouldRetry = false;
         
-        // If we have new responses and there are responses, trigger analysis
-        if (data.responses?.length > 0 && data.responses.length !== lastResponseCount) {
-          setLastResponseCount(data.responses.length);
-          analyzeResponses(data.responses);
-        }
       } catch (err) {
-        console.error('Error fetching responses:', err);
-        setError('Failed to load responses');
-      } finally {
-        setIsLoading(false);
+        console.error(`Error analyzing responses (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, err);
+        
+        if (retryCount >= MAX_RETRIES) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to analyze responses';
+          setError(errorMessage);
+          shouldRetry = false;
+        } else {
+          retryCount++;
+        }
       }
-    };
+    }
     
-    // Fetch immediately
-    fetchResponses();
-    
-    // Then set up polling every 30 seconds to check for new responses
-    const interval = setInterval(fetchResponses, 30000);
-    
-    // Clean up interval on unmount
-    return () => clearInterval(interval);
-  }, [pulseId, analysis, lastResponseCount, userId, analyzeResponses]);
-  
+    setIsAnalyzing(false);
+  }, [responses, pulseId]);
+
   // Function to delete the pulse
   const handleDeletePulse = async () => {
     if (!confirm('Are you sure you want to delete this pulse? This cannot be undone.')) {
@@ -174,25 +167,20 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     setIsDeleting(true);
     
     try {
-      // First try the API route
       const response = await fetch(`/api/pulse/${pulseId}`, {
         method: 'DELETE',
       });
       
-      // For client-side, also attempt to clean up localStorage directly
-      // This provides a fallback if the server-side deletion fails
       try {
         await deletePulse(pulseId);
       } catch (clientError) {
         console.error('Client-side deletion error:', clientError);
-        // Continue with the flow even if this fails
       }
       
       if (!response.ok) {
         throw new Error('Failed to delete pulse');
       }
       
-      // Redirect to home page after successful deletion
       router.push('/');
     } catch (err) {
       console.error('Error deleting pulse:', err);
@@ -200,67 +188,95 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       setIsDeleting(false);
     }
   };
-  
-  if (isLoading) {
+
+  if (!isInitialized) {
     return (
-      <div className="text-center py-12">
-        <HeartbeatAnimation />
-        <p>Loading responses...</p>
+      <div className="bg-secondary rounded-lg p-6 text-center">
+        <h2 className="text-xl font-bold mb-4">Pulse Responses</h2>
+        <p className="mb-4">Click refresh to load responses</p>
+        <button 
+          onClick={fetchPulseData}
+          className="btn-primary"
+          disabled={isLoading}
+        >
+          {isLoading ? 'Loading...' : 'Refresh'}
+        </button>
       </div>
     );
   }
   
   if (error) {
     return (
-      <div className="warning-box">
+      <div className="bg-secondary rounded-lg p-6 text-center">
+        <h2 className="text-xl font-bold mb-4">Error</h2>
         <p>{error}</p>
+        <button 
+          onClick={fetchPulseData}
+          className="mt-4 btn-primary"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
   
   return (
-    <div className="space-y-8">
-      <div className="bg-secondary rounded-lg p-6">
-        <h2 className="text-xl font-bold mb-4">Pulse Status</h2>
-        <p className="mb-2">Pulse ID: {pulseId}</p>
-        <p className="mb-4">Total Responses: {responses.length}</p>
-        
-        <div className="flex flex-wrap gap-4">
-          {responses.length > 0 && !analysis && !isAnalyzing && (
-            <button 
-              onClick={() => analyzeResponses()}
+    <div className="bg-secondary rounded-lg p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold">Pulse Responses</h2>
+        <div className="flex space-x-4">
+          <button 
+            onClick={fetchPulseData}
+            className="btn-secondary text-sm"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+          {!hasAnalysis && (
+            <button
+              onClick={analyzeResponses}
+              disabled={isAnalyzing || responses.length === 0}
               className="btn-primary"
             >
-              Analyze Responses
+              {isAnalyzing ? 'Analyzing...' : 'Analyze Responses'}
             </button>
           )}
-          
-          <button 
+          <button
             onClick={handleDeletePulse}
-            className="btn-secondary border-red-500 hover:border-red-400 text-red-500 hover:text-red-400"
             disabled={isDeleting}
+            className="btn-danger"
           >
             {isDeleting ? 'Deleting...' : 'Delete Pulse'}
           </button>
         </div>
-        
-        {isAnalyzing && (
-          <div className="text-center py-4">
-            <HeartbeatAnimation />
-            <p>Analyzing responses...</p>
-          </div>
-        )}
       </div>
       
-      {analysis && (
-        <div className="bg-secondary rounded-lg p-6">
-          <h2 className="text-xl font-bold mb-4">Team Pulse Analysis</h2>
+      <div className="mb-6">
+        <p className="text-lg font-medium">
+          {responses.length} Response{responses.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+
+      {hasAnalysis && (
+        <div className="mb-6">
+          <h3 className="text-lg font-bold mb-2">AI Analysis</h3>
           <div 
             className="prose prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: analysis }}
           />
         </div>
       )}
+
+      <div className="space-y-4">
+        {responses.map((response, index) => (
+          <div key={index} className="border border-gray-700 rounded-lg p-4">
+            <p className="text-sm opacity-70 mb-2">
+              {new Date(response.timestamp).toLocaleString()}
+            </p>
+            <p className="whitespace-pre-wrap">{response.response}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 } 
