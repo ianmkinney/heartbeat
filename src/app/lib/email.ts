@@ -83,8 +83,8 @@ export async function sendPulseSurveyEmails(emails: string[], pulseId: string) {
     const results = [];
     
     for (const email of emails) {
-      // Create a unique identifier for each recipient
-      const uniqueId = Buffer.from(email + Date.now()).toString('base64').replace(/=/g, '');
+      // Create a unique identifier for each recipient that won't change over time
+      const uniqueId = Buffer.from(email + '-heartbeat-survey-id').toString('base64').replace(/=/g, '');
       const surveyLink = `${baseUrl}/survey/${pulseId}/${uniqueId}`;
       
       // Email content
