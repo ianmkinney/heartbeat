@@ -88,11 +88,13 @@ export async function sendPulseSurveyEmails(emails: string[], pulseId: string) {
       const surveyLink = `${baseUrl}/survey/${pulseId}/${uniqueId}`;
       
       // Email content
-      const subject = 'Heartbeat: We want your feedback';
+      const subject = 'Heartbeat: We want your genuine feedback';
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <h1 style="color: #ff4081;">Heartbeat</h1>
-          <p>We'd like to know how you're doing! Please take a moment to provide your anonymous feedback.</p>
+          <p><strong>This is a test of the Heartbeat system.</strong> Please respond with your genuine feelings of how you have been feeling lately.</p>
+          <p>Your honest feedback will help us to improve team experience and make this a better place to work for all.</p>
+          <p><strong>Important:</strong> Your responses will not be shared with the rest of the team. All individual responses will be deleted once everyone has responded and the analysis has been generated.</p>
           <p>
             <a href="${surveyLink}" style="display: inline-block; background-color: #ff4081; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
               Respond to Pulse

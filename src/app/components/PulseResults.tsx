@@ -87,7 +87,14 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     }
   }, [fetchPulseData]);
 
-  // Function to analyze responses - only called manually
+  // Add effect to auto-analyze responses if no analysis exists
+  useEffect(() => {
+    if (isInitialized && responses.length > 0 && !hasAnalysis && !isAnalyzing) {
+      analyzeResponses();
+    }
+  }, [isInitialized, responses.length, hasAnalysis, isAnalyzing, analyzeResponses]);
+
+  // Function to analyze responses - only called manually or automatically
   const analyzeResponses = useCallback(async () => {
     if (responses.length === 0) {
       return;
@@ -317,7 +324,7 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       `}</style>
 
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">Pulse Responses</h2>
+        <h2 className="text-xl font-bold">Pulse Results</h2>
         <div className="flex space-x-4">
           <button 
             onClick={handleRefreshClick}
@@ -326,15 +333,6 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </button>
-          {!hasAnalysis && (
-            <button
-              onClick={analyzeResponses}
-              disabled={isAnalyzing || responses.length === 0}
-              className="btn-primary"
-            >
-              {isAnalyzing ? 'Analyzing...' : 'Analyze Responses'}
-            </button>
-          )}
           <button
             onClick={handleDeletePulse}
             disabled={isDeleting}
@@ -397,7 +395,16 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         </p>
       </div>
 
-      {hasAnalysis && (
+      {isAnalyzing && (
+        <div className="mb-6 text-center p-4 border border-gray-700 rounded-lg">
+          <p className="text-lg">Analyzing responses...</p>
+          <div className="mt-2 w-full bg-gray-700 rounded-full h-2">
+            <div className="bg-primary h-2 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+      )}
+
+      {hasAnalysis ? (
         <div className="mb-6">
           <h3 className="text-lg font-bold mb-2">AI Analysis</h3>
           <div 
@@ -405,18 +412,17 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
             dangerouslySetInnerHTML={{ __html: analysis }}
           />
         </div>
-      )}
-
-      <div className="space-y-4">
-        {responses.map((response, index) => (
-          <div key={index} className="border border-gray-700 rounded-lg p-4">
-            <p className="text-sm opacity-70 mb-2">
-              {new Date(response.timestamp).toLocaleString()}
-            </p>
-            <p className="whitespace-pre-wrap">{response.response}</p>
-          </div>
-        ))}
-      </div>
+      ) : responses.length > 0 && !isAnalyzing ? (
+        <div className="mb-6 text-center p-4 border border-gray-700 rounded-lg">
+          <p className="mb-4">Analysis will begin automatically...</p>
+          <button
+            onClick={analyzeResponses}
+            className="btn-primary"
+          >
+            Analyze Now
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 } 
