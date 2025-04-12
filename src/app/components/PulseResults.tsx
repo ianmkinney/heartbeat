@@ -87,13 +87,6 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     }
   }, [fetchPulseData]);
 
-  // Add effect to auto-analyze responses if no analysis exists
-  useEffect(() => {
-    if (isInitialized && responses.length > 0 && !hasAnalysis && !isAnalyzing) {
-      analyzeResponses();
-    }
-  }, [isInitialized, responses.length, hasAnalysis, isAnalyzing, analyzeResponses]);
-
   // Function to analyze responses - only called manually or automatically
   const analyzeResponses = useCallback(async () => {
     if (responses.length === 0) {
@@ -175,6 +168,13 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     
     setIsAnalyzing(false);
   }, [responses, pulseId]);
+
+  // Add effect to auto-analyze responses if no analysis exists
+  useEffect(() => {
+    if (isInitialized && responses.length > 0 && !hasAnalysis && !isAnalyzing) {
+      analyzeResponses();
+    }
+  }, [isInitialized, responses.length, hasAnalysis, isAnalyzing, analyzeResponses]);
 
   // Function to delete the pulse
   const handleDeletePulse = async () => {

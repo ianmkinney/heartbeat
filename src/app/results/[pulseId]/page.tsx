@@ -7,24 +7,35 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 
 // Generate metadata for the page
-export async function generateMetadata({ params }: { params: { pulseId: string } }): Promise<Metadata> {
-  // Wait for params to be resolved
-  const pulseId = await Promise.resolve(params.pulseId);
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: { pulseId: string } 
+}): Promise<Metadata> {
+  if (!params?.pulseId) {
+    return {
+      title: 'Pulse Results',
+      description: 'View anonymous pulse survey results'
+    };
+  }
   
   return {
-    title: `Pulse Results - ${pulseId}`,
+    title: `Pulse Results - ${params.pulseId}`,
     description: 'View anonymous pulse survey results'
   };
 }
 
-// @ts-expect-error -- Suppress Next.js PageProps type issue
-export default function ResultsPage({ params }: { params: { pulseId: string } }) {
-  // Ensure params is fully resolved before accessing properties
-  const pulseId = params?.pulseId;
-  
-  if (!pulseId) {
+// Use proper typing for the component
+export default function ResultsPage({ 
+  params 
+}: { 
+  params: { pulseId: string } 
+}) {
+  if (!params?.pulseId) {
     return notFound();
   }
+
+  const pulseId = params.pulseId;
 
   return (
     <div className="flex flex-col p-6">
