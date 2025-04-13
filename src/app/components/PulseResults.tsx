@@ -55,6 +55,8 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
             .eq('pulse_id', pulseId);
             
           if (responsesError) throw responsesError;
+          console.log('Responses fetched:', responsesData?.length || 0, 
+            'Response IDs:', responsesData?.map(r => r.respondent_id) || []);
           setResponses(responsesData || []);
         }
       } catch (err) {
@@ -69,9 +71,39 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
   }, [pulseId]);
 
   // Function to check if an email has responded
-  const hasResponded = (email: string) => {
-    return responses.some(response => response.respondent_id === email);
-  };
+  const hasResponded = useCallback((email: string) => {
+    if (!responses || responses.length === 0) return false;
+    
+    // Normalize email for comparison (lowercase & trim)
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check if this email is in the respondent_id list
+    const found = responses.some(response => {
+      if (!response.respondent_id) return false;
+      
+      const responseId = response.respondent_id.toLowerCase().trim();
+      
+      // Direct match
+      if (responseId === normalizedEmail) return true;
+      
+      // URL-encoded match (some email systems encode emails in URLs)
+      if (decodeURIComponent(responseId) === normalizedEmail) return true;
+      
+      return false;
+    });
+    
+    return found;
+  }, [responses]);
+
+  // Debug log for responses and emails
+  useEffect(() => {
+    if (pulse && responses.length > 0) {
+      console.log('Checking response status for emails:');
+      pulse.emails.forEach(email => {
+        console.log(`- ${email}: ${hasResponded(email) ? 'Responded' : 'Not responded'}`);
+      });
+    }
+  }, [pulse, responses, hasResponded]);
 
   // Function to handle analysis
   const handleAnalyze = async () => {
