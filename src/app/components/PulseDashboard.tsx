@@ -162,7 +162,7 @@ export default function PulseDashboard() {
                     Sent to {pulse.emails.length} recipient{pulse.emails.length !== 1 ? 's' : ''}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right" style={{ marginRight: '19px' }}>
                   <p className="text-lg font-bold">
                     {pulse.responseCount || 0} <span className="opacity-70 text-sm">responses</span>
                   </p>
