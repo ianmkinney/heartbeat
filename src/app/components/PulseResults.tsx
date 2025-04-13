@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { getPulseById, deletePulse, PulseData } from '@/app/lib/pulses';
+import { getPulseById, deletePulse, PulseData, updatePulse } from '@/app/lib/pulses';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/app/providers/ThemeProvider';
@@ -30,6 +30,8 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [expandedResponses, setExpandedResponses] = useState<number[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSendingError, setEmailSendingError] = useState<string | null>(null);
   const initialLoadComplete = useRef(false);
 
   // Fetch pulse and response data
@@ -171,6 +173,52 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     }
   };
 
+  // Function to send the next pending email
+  const sendNextEmail = async () => {
+    if (!pulse || !pulse.pendingEmails || pulse.pendingEmails.length === 0) {
+      console.log('No pending emails to send');
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      setEmailSendingError(null);
+      
+      console.log('Sending next email for pulse:', pulseId);
+      
+      const response = await fetch('/api/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          emails: pulse.pendingEmails, 
+          pulseId: pulse.id 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+      
+      const data = await response.json();
+      console.log('Email sending result:', data);
+      
+      // Refresh pulse data to get updated pending emails list
+      const updatedPulse = await getPulseById(pulseId);
+      if (updatedPulse) {
+        setPulse(updatedPulse);
+      }
+      
+    } catch (err) {
+      console.error('Error sending email:', err);
+      setEmailSendingError(err instanceof Error ? err.message : 'Failed to send email');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   // Debug output for pulse object
   useEffect(() => {
     if (pulse) {
@@ -291,6 +339,44 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
               ' - All responses collected!' : 
               ' - Waiting for more responses...'}
           </p>
+        </div>
+      )}
+      
+      {pulse.pendingEmails && pulse.pendingEmails.length > 0 && (
+        <div className="mb-6 bg-gray-800 rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2">Email Sending Progress</h3>
+          <p className="mb-3">
+            {pulse.sentEmails?.length || 0} of {pulse.emails.length} emails sent
+            ({pulse.pendingEmails.length} remaining)
+          </p>
+          
+          <div className="flex mb-3">
+            <div 
+              className="bg-green-600 h-2 rounded-l-full"
+              style={{ width: `${(pulse.sentEmails?.length || 0) / pulse.emails.length * 100}%` }}
+            ></div>
+            <div 
+              className="bg-gray-600 h-2 rounded-r-full"
+              style={{ width: `${pulse.pendingEmails.length / pulse.emails.length * 100}%` }}
+            ></div>
+          </div>
+          
+          <div className="mb-3">
+            <h4 className="font-medium text-sm mb-1">Next recipient:</h4>
+            <div className="bg-gray-700 p-2 rounded text-sm">{pulse.pendingEmails[0]}</div>
+          </div>
+          
+          <button
+            onClick={sendNextEmail}
+            disabled={isSendingEmail}
+            className="btn-primary w-full"
+          >
+            {isSendingEmail ? 'Sending Email...' : 'Send Next Email'}
+          </button>
+          
+          {emailSendingError && (
+            <p className="text-red-500 mt-2 text-sm">{emailSendingError}</p>
+          )}
         </div>
       )}
       
