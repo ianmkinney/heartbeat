@@ -79,6 +79,8 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       setIsAnalyzing(true);
       setAnalysisError(null);
       
+      console.log('Starting analysis for pulse:', pulseId);
+      
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
@@ -92,10 +94,25 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         throw new Error(errorData.error || 'Failed to analyze responses');
       }
       
+      const result = await response.json();
+      console.log('Analysis completed successfully', {
+        success: result.success,
+        hasAnalysis: true,
+        analysisLength: result.analysis ? result.analysis.length : 0
+      });
+      
       // Refresh the data to show the new analysis
       const pulseData = await getPulseById(pulseId);
       if (pulseData) {
+        console.log('Refreshed pulse data after analysis:', {
+          id: pulseData.id,
+          hasAnalysis: pulseData.hasAnalysis,
+          hasAnalysisContent: !!pulseData.analysisContent,
+          contentLength: pulseData.analysisContent ? pulseData.analysisContent.length : 0
+        });
         setPulse(pulseData);
+      } else {
+        console.error('Failed to refresh pulse data after analysis');
       }
       
     } catch (err) {
@@ -105,6 +122,18 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       setIsAnalyzing(false);
     }
   };
+
+  // Debug output for pulse object
+  useEffect(() => {
+    if (pulse) {
+      console.log('Pulse state updated:', {
+        id: pulse.id,
+        hasAnalysis: pulse.hasAnalysis,
+        analysisContentExists: !!pulse.analysisContent,
+        contentLength: pulse.analysisContent?.length || 0
+      });
+    }
+  }, [pulse]);
 
   if (error) {
     return (
@@ -205,19 +234,17 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         </div>
       </div>
       
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">Responses</h3>
-        <div className="space-y-4">
-          {responses.map((response) => (
-            <div key={response.id} className="bg-gray-800 rounded p-4">
-              <p className="text-sm opacity-70 mb-2">
-                Received {new Date(response.timestamp).toLocaleString()}
-              </p>
-              <p>{response.response}</p>
-            </div>
-          ))}
+      {pulse.responseCount > 0 && (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-2">Response Status</h3>
+          <p>
+            {pulse.responseCount} of {pulse.emails.length} responses received
+            {pulse.responseCount === pulse.emails.length ? 
+              ' - All responses collected!' : 
+              ' - Waiting for more responses...'}
+          </p>
         </div>
-      </div>
+      )}
       
       {pulse.responseCount === pulse.emails.length && !pulse.hasAnalysis && (
         <div className="mt-6">

@@ -227,6 +227,7 @@ export const getPulseById = async (id: string): Promise<PulseData | undefined> =
   return withFallback(
     async () => {
       // Get from Supabase
+      console.log(`Fetching pulse ${id} from database`);
       const { data, error } = await supabase
         .from('pulses')
         .select('*')
@@ -238,10 +239,17 @@ export const getPulseById = async (id: string): Promise<PulseData | undefined> =
         throw error;
       }
       
+      console.log('Pulse data from database:', {
+        id: data.id,
+        hasAnalysis: data.has_analysis,
+        analysisContent: data.analysis_content ? 'exists' : 'missing'
+      });
+      
       // Convert from Supabase format to our app format
       return {
         id: data.id,
         user_id: data.user_id,
+        name: data.name,
         createdAt: data.created_at,
         emails: data.emails,
         pendingEmails: data.pending_emails || [],
@@ -268,6 +276,12 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
     lastChecked: new Date().toISOString()
   };
   
+  console.log(`Updating pulse ${id} with data:`, {
+    hasAnalysis: updateData.hasAnalysis,
+    responseCount: updateData.responseCount,
+    hasAnalysisContent: !!updateData.analysisContent
+  });
+  
   return withFallback(
     async () => {
       // Convert to Supabase format
@@ -277,6 +291,9 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
       if (updateData.lastChecked !== undefined) supabaseData.last_checked = updateData.lastChecked;
       if (updateData.pendingEmails !== undefined) supabaseData.pending_emails = updateData.pendingEmails;
       if (updateData.sentEmails !== undefined) supabaseData.sent_emails = updateData.sentEmails;
+      if (updateData.analysisContent !== undefined) supabaseData.analysis_content = updateData.analysisContent;
+      
+      console.log('Supabase update data:', supabaseData);
       
       // First check if pulse exists
       const { data: existingPulse, error: fetchError } = await supabase
@@ -307,11 +324,13 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
         return {
           id: newPulse.id,
           user_id: newPulse.user_id,
+          name: newPulse.name,
           createdAt: newPulse.created_at,
           emails: newPulse.emails,
           responseCount: newPulse.response_count,
           lastChecked: newPulse.last_checked,
-          hasAnalysis: newPulse.has_analysis
+          hasAnalysis: newPulse.has_analysis,
+          analysisContent: newPulse.analysis_content
         } as PulseData;
       }
       
@@ -325,10 +344,17 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
         
       if (updateError) throw updateError;
       
+      console.log('Updated pulse:', {
+        id: updatedPulse.id,
+        hasAnalysis: updatedPulse.has_analysis,
+        analysisContent: updatedPulse.analysis_content ? 'exists' : 'missing'
+      });
+      
       // Convert from Supabase format to our app format
       return {
         id: updatedPulse.id,
         user_id: updatedPulse.user_id,
+        name: updatedPulse.name,
         createdAt: updatedPulse.created_at,
         emails: updatedPulse.emails,
         pendingEmails: updatedPulse.pending_emails || [],
@@ -336,20 +362,36 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
         responseCount: updatedPulse.response_count,
         lastChecked: updatedPulse.last_checked,
         hasAnalysis: updatedPulse.has_analysis,
-        analysisContent: updateData.analysisContent
+        analysisContent: updatedPulse.analysis_content
       } as PulseData;
     },
     () => {
       // Fallback to localStorage
       const pulses = getPulsesFromStorage();
       
-      if (!pulses[id]) return undefined;
+      // Check if pulse exists
+      if (!pulses[id]) {
+        // Create if it doesn't exist
+        const newPulse: PulseData = {
+          id,
+          user_id: userId,
+          createdAt: updateData.createdAt || new Date().toISOString(),
+          emails: updateData.emails || [],
+          responseCount: updateData.responseCount || 0,
+          lastChecked: updateData.lastChecked || new Date().toISOString(),
+          hasAnalysis: updateData.hasAnalysis || false,
+          analysisContent: updateData.analysisContent
+        };
+        pulses[id] = newPulse;
+        savePulsesToStorage(pulses);
+        return newPulse;
+      }
       
+      // Update if it exists
       pulses[id] = {
         ...pulses[id],
         ...updateData
       };
-      
       savePulsesToStorage(pulses);
       return pulses[id];
     },
@@ -403,13 +445,23 @@ export const updatePulseResponseCount = async (
   analysisContent?: string,
   userId: number = DEFAULT_USER_ID
 ) => {
-  return updatePulse(
-    id, 
-    { 
-      responseCount: count,
-      hasAnalysis,
-      ...(analysisContent ? { analysisContent } : {})
-    },
-    userId
-  );
+  console.log('updatePulseResponseCount called with:', {
+    id,
+    count,
+    hasAnalysis,
+    hasContent: !!analysisContent,
+    contentLength: analysisContent?.length || 0
+  });
+  
+  const updateData: Partial<PulseData> = { 
+    responseCount: count,
+    hasAnalysis
+  };
+  
+  // Only include analysisContent if it's defined and non-empty
+  if (analysisContent) {
+    updateData.analysisContent = analysisContent;
+  }
+  
+  return updatePulse(id, updateData, userId);
 }; 

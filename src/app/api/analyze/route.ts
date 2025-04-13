@@ -308,7 +308,13 @@ export async function POST(req: NextRequest) {
         }
         
         // Update the pulse data to indicate it has an analysis
-        await updatePulseResponseCount(pulseId, responses.length, true, analysis, userId);
+        console.log('Updating pulse with analysis content...');
+        const result = await updatePulseResponseCount(pulseId, responses.length, true, analysis, userId);
+        console.log('Update result:', {
+          success: !!result,
+          hasAnalysis: result?.hasAnalysis,
+          hasAnalysisContent: !!result?.analysisContent
+        });
       } catch (dbError) {
         console.error('Error storing analysis in Supabase:', dbError);
       }
