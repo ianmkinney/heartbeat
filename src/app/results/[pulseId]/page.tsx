@@ -1,24 +1,13 @@
 import PulseResults from '@/app/components/PulseResults';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { Metadata } from 'next';
+import { Metadata } from 'next';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
 // Generate metadata for the page
-export async function generateMetadata({ 
-  params 
-}: { 
-  params: { pulseId: string } 
-}): Promise<Metadata> {
-  if (!params?.pulseId) {
-    return {
-      title: 'Pulse Results',
-      description: 'View anonymous pulse survey results'
-    };
-  }
-  
+export async function generateMetadata({ params }: { params: { pulseId: string } }): Promise<Metadata> {
   return {
     title: `Pulse Results - ${params.pulseId}`,
     description: 'View anonymous pulse survey results'

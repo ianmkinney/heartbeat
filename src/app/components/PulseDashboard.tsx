@@ -35,6 +35,7 @@ export default function PulseDashboard() {
         setPulses(pulsesData.map(pulse => ({
           id: pulse.id,
           user_id: pulse.user_id,
+          name: pulse.name,
           createdAt: pulse.created_at,
           emails: pulse.emails,
           responseCount: pulse.response_count,
@@ -145,7 +146,6 @@ export default function PulseDashboard() {
           <div key={pulse.id} className="relative border border-gray-700 hover:border-primary rounded-lg transition duration-300 overflow-hidden">
             <div 
               onClick={() => {
-                // Only navigate, don't fetch data
                 router.push(`/results/${pulse.id}`);
               }}
               className="block p-4 cursor-pointer"
@@ -153,22 +153,24 @@ export default function PulseDashboard() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="font-medium">
-                    Pulse: {pulse.id}
+                    {pulse.name || `Pulse: ${pulse.id}`}
                   </p>
                   <p className="text-sm opacity-70">
                     Created {new Date(pulse.createdAt).toLocaleDateString()}
                   </p>
                   <p className="text-sm opacity-70">
-                    Sent to {pulse.emails.length} recipient{pulse.emails.length !== 1 ? 's' : ''}
+                    {pulse.responseCount || 0} of {pulse.emails.length} responses received
                   </p>
                 </div>
                 <div className="text-right" style={{ marginRight: '19px' }}>
-                  <p className="text-lg font-bold">
-                    {pulse.responseCount || 0} <span className="opacity-70 text-sm">responses</span>
-                  </p>
                   {pulse.hasAnalysis && (
                     <span className="inline-block bg-primary text-white text-xs rounded-full px-2 py-1 mt-1">
                       AI Analysis Ready
+                    </span>
+                  )}
+                  {pulse.responseCount === pulse.emails.length && !pulse.hasAnalysis && (
+                    <span className="inline-block bg-green-500 text-white text-xs rounded-full px-2 py-1 mt-1">
+                      Ready for Analysis
                     </span>
                   )}
                 </div>

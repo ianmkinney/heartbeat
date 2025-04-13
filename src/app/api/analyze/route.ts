@@ -27,19 +27,47 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeout: numb
 
 export async function POST(req: NextRequest) {
   try {
-    const { responses, pulseId } = await req.json();
-    
-    if (!responses || !Array.isArray(responses) || responses.length === 0) {
-      return NextResponse.json(
-        { error: 'Valid responses are required' },
-        { status: 400 }
-      );
-    }
+    const { pulseId } = await req.json();
     
     if (!pulseId) {
       return NextResponse.json(
         { error: 'Pulse ID is required' },
         { status: 400 }
+      );
+    }
+    
+    // Get the pulse data to check response count
+    const { data: pulseData, error: pulseError } = await supabase
+      .from('pulses')
+      .select('*')
+      .eq('id', pulseId)
+      .single();
+      
+    if (pulseError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch pulse data' },
+        { status: 500 }
+      );
+    }
+    
+    // Check if all responses are received
+    if (pulseData.response_count !== pulseData.emails.length) {
+      return NextResponse.json(
+        { error: 'Cannot analyze until all responses are received' },
+        { status: 400 }
+      );
+    }
+    
+    // Get all responses for this pulse
+    const { data: responses, error: responsesError } = await supabase
+      .from('responses')
+      .select('*')
+      .eq('pulse_id', pulseId);
+      
+    if (responsesError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch responses' },
+        { status: 500 }
       );
     }
     

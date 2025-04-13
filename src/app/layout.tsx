@@ -27,13 +27,37 @@ export default function RootLayout({
 
   // Check schema on component mount
   useEffect(() => {
+    let isMounted = true;
+    
     async function verifySchema() {
-      const isValid = await checkSchema();
-      setSchemaChecked(true);
-      setSchemaError(!isValid);
+      try {
+        const isValid = await checkSchema();
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setSchemaChecked(true);
+          setSchemaError(!isValid);
+        }
+      } catch (err) {
+        console.error('Schema verification error:', err);
+        
+        // Don't block the app on schema check errors
+        if (isMounted) {
+          setSchemaChecked(true);
+          setSchemaError(false);
+        }
+      }
     }
     
-    verifySchema();
+    // Don't block initial render with schema check
+    setTimeout(() => {
+      verifySchema();
+    }, 500);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (

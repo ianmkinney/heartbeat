@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { getPulseById, deletePulse } from '@/app/lib/pulses';
+import { getPulseById, deletePulse, PulseData } from '@/app/lib/pulses';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/app/providers/ThemeProvider';
+import HeartbeatAnimation from './HeartbeatAnimation';
 
 interface PulseResultsProps {
   pulseId: string;
@@ -13,271 +14,120 @@ interface PulseResultsProps {
 export default function PulseResults({ pulseId }: PulseResultsProps) {
   const router = useRouter();
   const { theme } = useTheme();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [responses, setResponses] = useState<Array<{ response: string, timestamp: string }>>([]);
-  const [analysis, setAnalysis] = useState('');
+  const [pulse, setPulse] = useState<PulseData | null>(null);
+  const [responses, setResponses] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [hasAnalysis, setHasAnalysis] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [emailsList, setEmailsList] = useState<string[]>([]);
-  const [sentEmailsList, setSentEmailsList] = useState<string[]>([]);
-  const [pendingEmailsList, setPendingEmailsList] = useState<string[]>([]);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [expandedResponses, setExpandedResponses] = useState<number[]>([]);
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const initialLoadComplete = useRef(false);
 
-  const fetchPulseData = useCallback(async (forceRefresh = false) => {
-    // Skip if already loading or if we've completed initial load and not forcing refresh
-    if (isLoading || (initialLoadComplete.current && !forceRefresh)) return;
-    
-    try {
-      setIsLoading(true);
-      setError('');
-      
-      // 1. Get the pulse data first to check if analysis exists
-      const pulseData = await getPulseById(pulseId);
-      
-      if (pulseData) {
-        setEmailsList(pulseData.emails || []);
-        setSentEmailsList(pulseData.sentEmails || []);
-        setPendingEmailsList(pulseData.pendingEmails || []);
-      }
-      
-      // 2. Fetch responses
-      if (isSupabaseConfigured) {
-        const { data: responsesData, error: responsesError } = await supabase
-          .from('responses')
-          .select('response, timestamp')
-          .eq('pulse_id', pulseId)
-          .order('timestamp', { ascending: false });
-          
-        if (responsesError) throw responsesError;
-        
-        setResponses(responsesData.map(item => ({
-          response: item.response,
-          timestamp: item.timestamp
-        })));
-      } else {
-        setResponses([]);
-      }
-      
-      // 3. Check if we already have analysis stored
-      if (pulseData?.hasAnalysis && pulseData?.analysisContent) {
-        setAnalysis(pulseData.analysisContent);
-        setHasAnalysis(true);
-      } else {
-        setHasAnalysis(false);
-      }
-      
-      setIsInitialized(true);
-      initialLoadComplete.current = true;
-      
-    } catch (err) {
-      console.error('Error fetching pulse data:', err);
-      setError('Failed to load pulse data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [pulseId, isLoading]);
-
-  // Add useEffect for initial load - only runs once
+  // Fetch pulse and response data
   useEffect(() => {
-    if (!initialLoadComplete.current) {
-      fetchPulseData();
-    }
-  }, [fetchPulseData]);
-
-  // Function to analyze responses - only called manually or automatically
-  const analyzeResponses = useCallback(async () => {
-    if (responses.length === 0) {
-      return;
-    }
-    
-    setIsAnalyzing(true);
-    setError('');
-    
-    const MAX_RETRIES = 2;
-    let retryCount = 0;
-    let shouldRetry = true;
-    
-    while (shouldRetry && retryCount <= MAX_RETRIES) {
+    async function fetchData() {
       try {
-        if (retryCount > 0) {
-          const delayMs = Math.min(10000, 1000 * (2 ** retryCount));
-          await new Promise(resolve => setTimeout(resolve, delayMs));
+        setIsLoading(true);
+        setError(null);
+        
+        // Get pulse data
+        const pulseData = await getPulseById(pulseId);
+        if (!pulseData) {
+          setError('Pulse not found');
+          return;
         }
+        setPulse(pulseData);
         
-        const result = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            responses,
-            pulseId 
-          }),
-        });
-        
-        if (!result.ok) {
-          const responseText = await result.text();
-          let errorMessage = 'Failed to analyze responses';
-          
-          try {
-            const errorData = JSON.parse(responseText);
-            if (errorData && errorData.error) {
-              errorMessage = errorData.error;
-            }
-          } catch {
-            errorMessage = `Failed to analyze responses: ${result.status}`;
-          }
-          
-          if (result.status === 429) {
-            errorMessage = 'The AI service is busy. Please wait a moment and try again.';
-            if (retryCount < MAX_RETRIES) {
-              retryCount++;
-              continue;
-            }
-          }
-          
-          throw new Error(errorMessage);
+        // Get responses
+        if (isSupabaseConfigured) {
+          const { data: responsesData, error: responsesError } = await supabase
+            .from('responses')
+            .select('*')
+            .eq('pulse_id', pulseId);
+            
+          if (responsesError) throw responsesError;
+          setResponses(responsesData || []);
         }
-        
-        const data = await result.json();
-        
-        if (!data.analysis) {
-          throw new Error('No analysis returned from API');
-        }
-        
-        // Just update the local state without triggering any fetches
-        setAnalysis(data.analysis);
-        setHasAnalysis(true);
-        shouldRetry = false;
-        
       } catch (err) {
-        console.error(`Error analyzing responses (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, err);
-        
-        if (retryCount >= MAX_RETRIES) {
-          const errorMessage = err instanceof Error ? err.message : 'Failed to analyze responses';
-          setError(errorMessage);
-          shouldRetry = false;
-        } else {
-          retryCount++;
-        }
+        console.error('Error fetching data:', err);
+        setError('Failed to load pulse data');
+      } finally {
+        setIsLoading(false);
       }
     }
     
-    setIsAnalyzing(false);
-  }, [responses, pulseId]);
+    fetchData();
+  }, [pulseId]);
 
-  // Function to delete the pulse
-  const handleDeletePulse = async () => {
-    if (!confirm('Are you sure you want to delete this pulse? This cannot be undone.')) {
-      return;
-    }
-    
-    setIsDeleting(true);
-    
-    try {
-      const response = await fetch(`/api/pulse/${pulseId}`, {
-        method: 'DELETE',
-      });
-      
-      try {
-        await deletePulse(pulseId);
-      } catch (clientError) {
-        console.error('Client-side deletion error:', clientError);
-      }
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete pulse');
-      }
-      
-      router.push('/');
-    } catch (err) {
-      console.error('Error deleting pulse:', err);
-      setError('Failed to delete pulse');
-      setIsDeleting(false);
-    }
+  // Function to check if an email has responded
+  const hasResponded = (email: string) => {
+    return responses.some(response => response.respondent_id === email);
   };
 
-  // Add an event handler wrapper for the button clicks
-  const handleRefreshClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    fetchPulseData(true);
-  }, [fetchPulseData]);
-
-  // Function to send pending emails
-  const sendPendingEmail = useCallback(async () => {
-    if (pendingEmailsList.length === 0) {
-      return;
-    }
-    
+  // Function to handle analysis
+  const handleAnalyze = async () => {
     try {
-      setIsLoading(true);
-      // Call the email API with the first pending email
-      const response = await fetch('/api/email', {
+      setIsAnalyzing(true);
+      setAnalysisError(null);
+      
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          emails: pendingEmailsList,
-          pulseId 
-        }),
+        body: JSON.stringify({ pulseId }),
       });
       
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to send email');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to analyze responses');
       }
       
-      console.log('Email sent successfully:', data);
-      
-      // Refresh the data
-      fetchPulseData(true);
+      // Refresh the data to show the new analysis
+      const pulseData = await getPulseById(pulseId);
+      if (pulseData) {
+        setPulse(pulseData);
+      }
       
     } catch (err) {
-      console.error('Error sending pending email:', err);
-      setError('Failed to send email');
+      console.error('Error analyzing responses:', err);
+      setAnalysisError(err instanceof Error ? err.message : 'Failed to analyze responses');
     } finally {
-      setIsLoading(false);
+      setIsAnalyzing(false);
     }
-  }, [pendingEmailsList, pulseId, fetchPulseData]);
+  };
 
-  if (!isInitialized) {
-    return (
-      <div className="bg-secondary rounded-lg p-6 text-center">
-        <h2 className="text-xl font-bold mb-4">Pulse Responses</h2>
-        <p className="mb-4">Click refresh to load responses</p>
-        <button 
-          onClick={handleRefreshClick}
-          className="btn-primary"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Loading...' : 'Refresh'}
-        </button>
-      </div>
-    );
-  }
-  
   if (error) {
     return (
       <div className="bg-secondary rounded-lg p-6 text-center">
         <h2 className="text-xl font-bold mb-4">Error</h2>
-        <p>{error}</p>
+        <p className="text-red-500 mb-4">{error}</p>
         <button 
-          onClick={handleRefreshClick}
-          className="mt-4 btn-primary"
+          onClick={() => router.push('/')}
+          className="btn-primary"
         >
-          Try Again
+          Back to Dashboard
         </button>
       </div>
     );
   }
-  
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <HeartbeatAnimation />
+        <p>Loading pulse data...</p>
+      </div>
+    );
+  }
+
+  if (!pulse) {
+    return null;
+  }
+
   return (
-    <div className="bg-secondary rounded-lg p-6">
+    <div className="max-w-4xl mx-auto p-4">
       <style jsx global>{`
         /* Force black text in light mode for prose content */
         :root[data-theme="light"] .prose:not(.prose-invert) {
@@ -317,105 +167,74 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       `}</style>
 
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">Pulse Results</h2>
-        <div className="flex space-x-4">
-          <button 
-            onClick={handleRefreshClick}
-            className="btn-secondary text-sm"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <button
-            onClick={handleDeletePulse}
-            disabled={isDeleting}
-            className="btn-danger"
-          >
-            {isDeleting ? 'Deleting...' : 'Delete Pulse'}
-          </button>
-        </div>
-      </div>
-      
-      {/* Emails section */}
-      <div className="mb-6 border border-gray-700 rounded-lg p-4">
-        <h3 className="text-lg font-bold mb-2">Email Recipients</h3>
-        <div className="flex justify-between items-center mb-2">
-          <div>
-            <span className="font-medium">Total: {emailsList.length} recipients</span>
-            <span className="mx-2">|</span>
-            <span className="text-green-500">{sentEmailsList.length} sent</span>
-            {pendingEmailsList.length > 0 && (
-              <>
-                <span className="mx-2">|</span>
-                <span className="text-yellow-500">{pendingEmailsList.length} pending</span>
-              </>
-            )}
-          </div>
-          {pendingEmailsList.length > 0 && (
-            <button
-              onClick={sendPendingEmail}
-              className="btn-primary btn-sm"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Sending...' : 'Send Next Email'}
-            </button>
-          )}
-        </div>
-
-        {emailsList.length > 0 && (
-          <div className="mt-3">
-            <h4 className="font-medium mb-1">Email Addresses:</h4>
-            <div className={`max-h-32 overflow-y-auto p-2 rounded ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`}>
-              {emailsList.map((email, idx) => (
-                <div key={idx} className="mb-1 flex items-center">
-                  <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>{email}</span>
-                  {sentEmailsList.includes(email) && (
-                    <span className="ml-2 text-xs bg-green-700 text-white px-2 py-0.5 rounded">Sent</span>
-                  )}
-                  {pendingEmailsList.includes(email) && (
-                    <span className="ml-2 text-xs bg-yellow-600 text-white px-2 py-0.5 rounded">Pending</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <h2 className="text-xl font-bold">{pulse.name || `Pulse: ${pulse.id}`}</h2>
+        <button 
+          onClick={() => router.push('/')}
+          className="btn-secondary"
+        >
+          Back to Dashboard
+        </button>
       </div>
       
       <div className="mb-6">
-        <p className="text-lg font-medium">
-          {responses.length} Response{responses.length !== 1 ? 's' : ''}
-        </p>
+        <h3 className="text-lg font-semibold mb-2">Recipients</h3>
+        <div className="space-y-2">
+          {pulse.emails.map((email) => (
+            <div 
+              key={email} 
+              className={`flex items-center justify-between p-2 rounded ${
+                hasResponded(email) ? 'bg-green-900/20' : 'bg-red-900/20'
+              }`}
+            >
+              <span>{email}</span>
+              <span className={`text-sm ${
+                hasResponded(email) ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {hasResponded(email) ? 'Responded' : 'Waiting for response'}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {isAnalyzing && (
-        <div className="mb-6 text-center p-4 border border-gray-700 rounded-lg">
-          <p className="text-lg">Analyzing responses...</p>
-          <div className="mt-2 w-full bg-gray-700 rounded-full h-2">
-            <div className="bg-primary h-2 rounded-full animate-pulse"></div>
-          </div>
+      
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold mb-2">Responses</h3>
+        <div className="space-y-4">
+          {responses.map((response) => (
+            <div key={response.id} className="bg-gray-800 rounded p-4">
+              <p className="text-sm opacity-70 mb-2">
+                Received {new Date(response.timestamp).toLocaleString()}
+              </p>
+              <p>{response.response}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {pulse.responseCount === pulse.emails.length && !pulse.hasAnalysis && (
+        <div className="mt-6">
+          <button
+            onClick={handleAnalyze}
+            disabled={isAnalyzing}
+            className="btn-primary w-full"
+          >
+            {isAnalyzing ? 'Analyzing...' : 'Analyze Responses'}
+          </button>
+          {analysisError && (
+            <p className="text-red-500 mt-2">{analysisError}</p>
+          )}
         </div>
       )}
-
-      {hasAnalysis ? (
-        <div className="mb-6">
-          <h3 className="text-lg font-bold mb-2">AI Analysis</h3>
+      
+      {pulse.hasAnalysis && pulse.analysisContent && (
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold mb-2">Analysis</h3>
           <div 
-            className={`prose ${theme === 'dark' ? 'prose-invert' : ''} max-w-none`}
-            dangerouslySetInnerHTML={{ __html: analysis }}
+            className="prose prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: pulse.analysisContent }}
           />
         </div>
-      ) : responses.length > 0 && !isAnalyzing ? (
-        <div className="mb-6 text-center p-4 border border-gray-700 rounded-lg">
-          <p className="mb-4">Generate an AI analysis of the responses:</p>
-          <button
-            onClick={analyzeResponses}
-            className="btn-primary"
-          >
-            Analyze Results
-          </button>
-        </div>
-      ) : null}
+      )}
     </div>
   );
 } 

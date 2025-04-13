@@ -4,14 +4,40 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Create a single supabase client for interacting with your database
-export const supabase = createClient(
-  supabaseUrl || '',
-  supabaseAnonKey || ''
-);
+// Console log Supabase configuration status (with privacy protection)
+if (typeof window !== 'undefined') {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Supabase not fully configured!', { 
+      hasUrl: !!supabaseUrl, 
+      hasKey: !!supabaseAnonKey 
+    });
+  } else {
+    console.log('Supabase configuration present', { 
+      urlPrefix: supabaseUrl.substring(0, 12) + '...' 
+    });
+  }
+}
 
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = !!supabaseUrl && !!supabaseAnonKey;
+
+// Create a single supabase client for interacting with your database
+export const supabase = createClient(
+  supabaseUrl || '',
+  supabaseAnonKey || '',
+  { 
+    auth: { 
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: { 'x-application-name': 'heartbeat' }
+    }
+  }
+);
 
 // Helper function to handle database operations with fallback to localStorage
 export async function withFallback<T>(
@@ -33,28 +59,43 @@ export async function withFallback<T>(
 }
 
 export const checkSchema = async (): Promise<boolean> => {
-  if (!isSupabaseConfigured) return false;
+  if (!isSupabaseConfigured) {
+    console.log('Supabase not configured, skipping schema check');
+    return false;
+  }
   
   try {
-    // Check if the pending_emails and sent_emails columns exist
+    // First check if the pulses table exists
+    const { data: tables, error: tableError } = await supabase
+      .rpc('check_table_exists', { table_name: 'pulses' });
+      
+    if (tableError) {
+      console.error('Error checking if tables exist:', tableError);
+      return false;
+    }
+    
+    // If pulses table doesn't exist, schema needs setup
+    if (!tables) {
+      console.warn('Pulses table not found. Please run the schema setup script.');
+      return false;
+    }
+    
+    // Check if the name column exists in pulses table
     const { data, error } = await supabase
       .from('pulses')
-      .select('pending_emails, sent_emails')
+      .select('name')
       .limit(1);
       
     if (error) {
-      console.error('Error checking schema:', error);
+      console.error('Error checking schema columns:', error);
       
       // If the error indicates missing columns
-      if (error.message && (
-        error.message.includes('column "pending_emails" does not exist') ||
-        error.message.includes('column "sent_emails" does not exist')
-      )) {
-        console.warn('The pulses table is missing email tracking columns. Please run the migration.');
+      if (error.message && error.message.includes('column "name" does not exist')) {
+        console.warn('The pulses table is missing the name column. Please run the migration.');
         return false;
       }
       
-      // For other errors, assume schema is ok to avoid blocking the app
+      // For other errors (like no data found), assume schema is ok
       return true;
     }
     

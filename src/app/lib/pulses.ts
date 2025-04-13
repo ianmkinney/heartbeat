@@ -1,10 +1,11 @@
 // Pulses module for storing and retrieving pulse data
 // Uses Supabase with localStorage fallback
-import { supabase, withFallback } from './supabase';
+import { supabase, withFallback, isSupabaseConfigured } from './supabase';
 
 export interface PulseData {
   id: string;
   user_id?: number;
+  name?: string; // Name of the pulse
   createdAt: string;
   emails: string[];
   sentEmails?: string[];
@@ -65,61 +66,130 @@ const deletePulseFromStorage = (id: string): boolean => {
 const DEFAULT_USER_ID = 1;
 
 // Create a new pulse
-export const createPulse = async (id: string, emails: string[], userId: number = DEFAULT_USER_ID, pendingEmails?: string[]) => {
+export const createPulse = async (id: string, emails: string[], userId: number = DEFAULT_USER_ID, pendingEmails?: string[], name?: string) => {
+  // Validate inputs to avoid unexpected errors
+  if (!id || !emails || !Array.isArray(emails)) {
+    throw new Error('Invalid pulse data: id and emails array are required');
+  }
+  
   const newPulse: PulseData = {
     id,
     user_id: userId,
+    name: name || null, // Ensure name is never undefined
     createdAt: new Date().toISOString(),
     emails,
-    pendingEmails,
+    pendingEmails: pendingEmails || [],
     sentEmails: [],
     responseCount: 0,
     lastChecked: new Date().toISOString()
   };
   
-  return withFallback(
-    async () => {
-      // Insert into Supabase
+  // If Supabase is not configured, fallback to localStorage
+  if (!isSupabaseConfigured) {
+    console.warn('Supabase not configured, using localStorage fallback');
+    const pulses = getPulsesFromStorage();
+    pulses[id] = newPulse;
+    savePulsesToStorage(pulses);
+    return newPulse;
+  }
+  
+  try {
+    console.log('Attempting to create pulse in database:', { 
+      id: newPulse.id, 
+      emails: newPulse.emails.length 
+    });
+    
+    // First try with all fields - this will work if the schema is up to date
+    const coreData = {
+      id: newPulse.id,
+      user_id: newPulse.user_id,
+      name: newPulse.name,
+      created_at: newPulse.createdAt,
+      emails: newPulse.emails,
+      response_count: newPulse.responseCount || 0,
+      last_checked: newPulse.lastChecked,
+      has_analysis: false
+    };
+    
+    // Try the insert with complete data first
+    try {
       const { data, error } = await supabase
         .from('pulses')
         .insert({
-          id: newPulse.id,
-          user_id: newPulse.user_id,
-          created_at: newPulse.createdAt,
-          emails: newPulse.emails,
-          pending_emails: newPulse.pendingEmails,
-          sent_emails: newPulse.sentEmails,
-          response_count: newPulse.responseCount,
-          last_checked: newPulse.lastChecked,
-          has_analysis: false
+          ...coreData,
+          pending_emails: newPulse.pendingEmails || [],
+          sent_emails: newPulse.sentEmails || []
         })
-        .select()
-        .single();
-        
-      if (error) throw error;
+        .select();
       
-      // Convert from Supabase format to our app format
-      return {
-        id: data.id,
-        user_id: data.user_id,
-        createdAt: data.created_at,
-        emails: data.emails,
-        pendingEmails: data.pending_emails,
-        sentEmails: data.sent_emails,
-        responseCount: data.response_count,
-        lastChecked: data.last_checked,
-        hasAnalysis: data.has_analysis
-      } as PulseData;
-    },
-    () => {
-      // Fallback to localStorage
-      const pulses = getPulsesFromStorage();
-      pulses[id] = newPulse;
-      savePulsesToStorage(pulses);
-      return newPulse;
-    },
-    'Failed to create pulse in database'
-  );
+      if (!error) {
+        console.log('Pulse created successfully with all fields:', data[0].id);
+        
+        // Convert from Supabase format to our app format
+        return {
+          id: data[0].id,
+          user_id: data[0].user_id,
+          name: data[0].name,
+          createdAt: data[0].created_at,
+          emails: data[0].emails || [],
+          pendingEmails: data[0].pending_emails || [],
+          sentEmails: data[0].sent_emails || [],
+          responseCount: data[0].response_count || 0,
+          lastChecked: data[0].last_checked,
+          hasAnalysis: data[0].has_analysis || false
+        } as PulseData;
+      }
+      
+      // If we got a column doesn't exist error, try with just core fields
+      if (error && error.code === 'PGRST204' && 
+          (error.message?.includes('pending_emails') || error.message?.includes('sent_emails'))) {
+        console.warn('Missing email tracking columns, trying with core fields only');
+      } else if (error) {
+        // If it's some other error, throw it
+        throw error;
+      }
+    } catch (e) {
+      console.warn('Error in full pulse creation, falling back to core fields:', e);
+    }
+    
+    // If we're here, the first insert failed - try with core fields only
+    console.log('Attempting pulse creation with core fields only');
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('pulses')
+      .insert(coreData)
+      .select();
+    
+    if (fallbackError) {
+      console.error('Failed to create pulse with core fields:', fallbackError);
+      throw fallbackError;
+    }
+    
+    if (!fallbackData || fallbackData.length === 0) {
+      throw new Error('No data returned from database');
+    }
+    
+    console.log('Pulse created with core fields:', fallbackData[0].id);
+    
+    // Convert from Supabase format to our app format
+    return {
+      id: fallbackData[0].id,
+      user_id: fallbackData[0].user_id,
+      name: fallbackData[0].name,
+      createdAt: fallbackData[0].created_at,
+      emails: fallbackData[0].emails || [],
+      responseCount: fallbackData[0].response_count || 0,
+      lastChecked: fallbackData[0].last_checked,
+      hasAnalysis: fallbackData[0].has_analysis || false
+    } as PulseData;
+  } catch (err) {
+    console.error('Failed to create pulse in database:', err);
+    
+    // Fallback to localStorage
+    const pulses = getPulsesFromStorage();
+    pulses[id] = newPulse;
+    savePulsesToStorage(pulses);
+    return newPulse;
+  }
 };
 
 // Get all pulses, sorted by most recent first

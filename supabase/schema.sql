@@ -26,6 +26,7 @@ ON CONFLICT (email) DO NOTHING;
 CREATE TABLE pulses (
   id TEXT PRIMARY KEY,
   user_id INTEGER REFERENCES heartbeat_users(id) DEFAULT 1,
+  name TEXT, -- Name of the pulse
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   emails JSONB NOT NULL, -- Array of email addresses
   response_count INTEGER DEFAULT 0,

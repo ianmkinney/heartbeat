@@ -7,6 +7,7 @@ import { createPulse } from '@/app/lib/pulses';
 export default function CreatePulseForm() {
   const router = useRouter();
   const [emails, setEmails] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [pulseId, setPulseId] = useState('');
@@ -62,7 +63,7 @@ export default function CreatePulseForm() {
       
       // Save the pulse to database or local storage
       try {
-        await createPulse(newPulseId, emailList, undefined, emailList);
+        await createPulse(newPulseId, emailList, undefined, emailList, name.trim());
       } catch (saveError) {
         console.error('Error saving pulse data:', saveError);
         // Continue anyway since we can still send emails
@@ -140,6 +141,23 @@ export default function CreatePulseForm() {
   return (
     <div className="w-full max-w-md mx-auto">
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label 
+            htmlFor="name" 
+            className="block text-sm font-medium mb-2"
+          >
+            Pulse Name (optional):
+          </label>
+          <input
+            id="name"
+            type="text"
+            className="input-field"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Q2 Team Check-in"
+          />
+        </div>
+        
         <div>
           <label 
             htmlFor="emails" 
