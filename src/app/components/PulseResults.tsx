@@ -11,11 +11,19 @@ interface PulseResultsProps {
   pulseId: string;
 }
 
+interface PulseResponse {
+  id: string;
+  pulse_id: string;
+  response: string;
+  timestamp: string;
+  respondent_id: string;
+}
+
 export default function PulseResults({ pulseId }: PulseResultsProps) {
   const router = useRouter();
   const { theme } = useTheme();
   const [pulse, setPulse] = useState<PulseData | null>(null);
-  const [responses, setResponses] = useState<any[]>([]);
+  const [responses, setResponses] = useState<PulseResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
