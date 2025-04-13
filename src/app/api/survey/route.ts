@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
           pulseData?.user_id || DEFAULT_USER_ID
         );
         
-        console.log(`Saved response to Supabase for pulse ${pulseId}`);
+        console.log(`Saved response to Supabase for pulse ${pulseId} from ${respondentId || 'anonymous'}`);
         
         return NextResponse.json({
           success: true,

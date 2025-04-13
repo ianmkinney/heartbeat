@@ -14,6 +14,9 @@ export default async function SurveyPage({ params }: SurveyPageProps) {
   if (!params?.pulseId || !params?.respondentId) {
     return notFound();
   }
+  
+  // Decode the respondentId in case it's URL-encoded
+  const decodedRespondentId = decodeURIComponent(params.respondentId);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -30,7 +33,7 @@ export default async function SurveyPage({ params }: SurveyPageProps) {
         <HeartbeatAnimation />
         
         <div className="bg-secondary rounded-lg p-8">
-          <SurveyForm pulseId={params.pulseId} respondentId={params.respondentId} />
+          <SurveyForm pulseId={params.pulseId} respondentId={decodedRespondentId} />
         </div>
         
         <div className="text-sm opacity-60">

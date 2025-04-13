@@ -84,13 +84,29 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
       const responseId = response.respondent_id.toLowerCase().trim();
       
       // Direct match
-      if (responseId === normalizedEmail) return true;
+      if (responseId === normalizedEmail) {
+        console.log(`✅ Direct match for ${email}: ${responseId}`);
+        return true;
+      }
       
       // URL-encoded match (some email systems encode emails in URLs)
-      if (decodeURIComponent(responseId) === normalizedEmail) return true;
+      if (decodeURIComponent(responseId) === normalizedEmail) {
+        console.log(`✅ URL-decoded match for ${email}: ${responseId} -> ${decodeURIComponent(responseId)}`);
+        return true;
+      }
+      
+      // Logging for near matches for debugging
+      if (responseId.includes(normalizedEmail) || normalizedEmail.includes(responseId)) {
+        console.log(`ℹ️ Partial match found but not exact: ${normalizedEmail} vs ${responseId}`);
+      }
       
       return false;
     });
+    
+    if (!found) {
+      console.log(`❌ No match found for ${email} among respondent IDs:`, 
+        responses.map(r => r.respondent_id));
+    }
     
     return found;
   }, [responses]);

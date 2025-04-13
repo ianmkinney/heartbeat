@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface SurveyFormProps {
@@ -13,6 +13,42 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [emails, setEmails] = useState<string[]>([]);
+  const [isLoadingEmails, setIsLoadingEmails] = useState(true);
+  const [selectedEmail, setSelectedEmail] = useState(respondentId);
+  
+  // Fetch emails for this pulse
+  useEffect(() => {
+    async function fetchEmails() {
+      try {
+        setIsLoadingEmails(true);
+        const response = await fetch(`/api/survey/recipient-emails/${pulseId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch recipient emails');
+        }
+        
+        const data = await response.json();
+        if (data.success && Array.isArray(data.emails)) {
+          setEmails(data.emails);
+          
+          // If respondentId is included in emails, set it as selected
+          if (data.emails.includes(respondentId)) {
+            setSelectedEmail(respondentId);
+          } else if (data.emails.length > 0) {
+            // Otherwise default to first email
+            setSelectedEmail(data.emails[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching recipient emails:', err);
+      } finally {
+        setIsLoadingEmails(false);
+      }
+    }
+    
+    fetchEmails();
+  }, [pulseId, respondentId]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +62,12 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
         return;
       }
       
+      if (!selectedEmail) {
+        setError('Please select your email address');
+        setIsSubmitting(false);
+        return;
+      }
+      
       const result = await fetch('/api/survey', {
         method: 'POST',
         headers: {
@@ -34,7 +76,7 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
         body: JSON.stringify({
           pulseId,
           response: response.trim(),
-          respondentId // This helps identify unique submissions without revealing identity
+          respondentId: selectedEmail // Use the selected email as respondentId
         }),
       });
       
@@ -76,6 +118,41 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label 
+            htmlFor="email-select" 
+            className="block text-sm font-medium mb-2"
+          >
+            Please confirm your email address:
+          </label>
+          <select
+            id="email-select"
+            className="input-field"
+            value={selectedEmail}
+            onChange={(e) => setSelectedEmail(e.target.value)}
+            disabled={isLoadingEmails || emails.length === 0}
+            required
+          >
+            {isLoadingEmails ? (
+              <option value="">Loading emails...</option>
+            ) : emails.length === 0 ? (
+              <option value="">No emails available</option>
+            ) : (
+              <>
+                <option value="">-- Select your email --</option>
+                {emails.map(email => (
+                  <option key={email} value={email}>
+                    {email}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+          <p className="text-xs mt-1 opacity-70">
+            This helps us track who has responded.
+          </p>
+        </div>
+        
+        <div>
+          <label 
             htmlFor="response" 
             className="block text-xl font-medium mb-4"
           >
@@ -100,7 +177,7 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
         <button
           type="submit"
           className="btn-primary w-full"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLoadingEmails}
         >
           {isSubmitting ? 'Submitting...' : 'Submit Response'}
         </button>
