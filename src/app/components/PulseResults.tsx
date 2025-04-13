@@ -169,13 +169,6 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
     setIsAnalyzing(false);
   }, [responses, pulseId]);
 
-  // Add effect to auto-analyze responses if no analysis exists
-  useEffect(() => {
-    if (isInitialized && responses.length > 0 && !hasAnalysis && !isAnalyzing) {
-      analyzeResponses();
-    }
-  }, [isInitialized, responses.length, hasAnalysis, isAnalyzing, analyzeResponses]);
-
   // Function to delete the pulse
   const handleDeletePulse = async () => {
     if (!confirm('Are you sure you want to delete this pulse? This cannot be undone.')) {
@@ -414,12 +407,12 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
         </div>
       ) : responses.length > 0 && !isAnalyzing ? (
         <div className="mb-6 text-center p-4 border border-gray-700 rounded-lg">
-          <p className="mb-4">Analysis will begin automatically...</p>
+          <p className="mb-4">Generate an AI analysis of the responses:</p>
           <button
             onClick={analyzeResponses}
             className="btn-primary"
           >
-            Analyze Now
+            Analyze Results
           </button>
         </div>
       ) : null}

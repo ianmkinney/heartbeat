@@ -95,8 +95,8 @@ export async function sendPulseSurveyEmails(emails: string[], pulseId: string) {
           <p><strong>This is a test of the Heartbeat system.</strong> Please respond with your genuine feelings of how you have been feeling lately.</p>
           <p>Your honest feedback will help us to improve team experience and make this a better place to work for all.</p>
           <p><strong>Important:</strong> Your responses will not be shared with the rest of the team. All individual responses will be deleted once everyone has responded and the analysis has been generated.</p>
-          <p>
-            <a href="${surveyLink}" style="display: inline-block; background-color: #ff4081; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
+          <p style="text-align: center;">
+            <a href="${surveyLink}" style="display: block; width: 80%; margin: 20px auto; background-color: #ff4081; color: white; padding: 16px 24px; text-decoration: none; border-radius: 8px; font-size: 18px; text-align: center;">
               Respond to Pulse
             </a>
           </p>
