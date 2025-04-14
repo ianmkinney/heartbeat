@@ -1,5 +1,24 @@
 -- Heartbeat Schema for Supabase
 
+-- Helper function for schema management
+CREATE OR REPLACE FUNCTION check_table_exists(table_name text) 
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    exists_val boolean;
+BEGIN
+    SELECT EXISTS (
+        SELECT FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename = table_name
+    ) INTO exists_val;
+    
+    RETURN exists_val;
+END;
+$$;
+
 -- Drop existing tables if they exist (in correct order due to foreign key constraints)
 DROP TABLE IF EXISTS analyses;
 DROP TABLE IF EXISTS responses;
@@ -32,7 +51,9 @@ CREATE TABLE pulses (
   response_count INTEGER DEFAULT 0,
   last_checked TIMESTAMP WITH TIME ZONE DEFAULT now(),
   has_analysis BOOLEAN DEFAULT false,
-  analysis_content TEXT -- HTML content of the analysis
+  analysis_content TEXT, -- HTML content of the analysis
+  pending_emails JSONB DEFAULT '[]'::jsonb, -- Emails pending to be sent
+  sent_emails JSONB DEFAULT '[]'::jsonb -- Emails that have been sent
 );
 
 -- Responses table - Stores anonymous responses to pulses
@@ -96,4 +117,4 @@ CREATE POLICY "Public update access to pulses"
   ON pulses FOR UPDATE USING (true);
 
 CREATE POLICY "Public update access to analyses" 
-  ON analyses FOR UPDATE USING (true); 
+  ON analyses FOR UPDATE USING (true);
