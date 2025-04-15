@@ -1,4 +1,3 @@
-import HeartbeatAnimation from './components/HeartbeatAnimation';
 import CreatePulseForm from './components/CreatePulseForm';
 import PulseDashboard from './components/PulseDashboard';
 
@@ -41,15 +40,9 @@ export default function Home() {
         </div>
         
         <div className="space-y-8">
-          <div className="text-center mb-8 md:hidden">
-            <HeartbeatAnimation />
-          </div>
           
           <PulseDashboard />
           
-          <div className="hidden md:block text-center">
-            <HeartbeatAnimation />
-          </div>
         </div>
       </div>
       

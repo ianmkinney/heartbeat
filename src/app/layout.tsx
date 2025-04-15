@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers/index";
 import Header from "./components/Header";
+import VideoBackground from "./components/VideoBackground";
 import { useEffect, useState } from 'react';
 import { checkSchema } from '@/app/lib/supabase';
 
@@ -69,6 +70,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <VideoBackground />
         {schemaError && (
           <div className="bg-red-600 text-white p-4 text-center">
             <p className="font-bold">Database Schema Warning</p>

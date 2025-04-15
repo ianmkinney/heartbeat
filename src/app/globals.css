@@ -9,27 +9,29 @@
   --accent: #ff3b30;
   --border: #333333;
   --warning-bg: rgba(255, 59, 48, 0.1);
-  --card-bg: #121212;
+  --card-bg: rgba(18, 18, 18, 0.85); /* Added opacity to card background */
   --text-muted: #a0a0a0;
   --hover-bg: #1e1e1e;
   --prose-text: #e0e0e0;
   --prose-heading: #ffffff;
+  --card-opacity: 0.85; /* New variable for card opacity */
 }
 
 /* Light mode colors */
 :root[data-theme="light"] {
   --background: #f8f8f8;
-  --foreground: #333333;
+  --foreground: #000000; /* Darkened foreground text for better contrast */
   --primary: #ff3b30;
   --secondary: #ffffff;
   --accent: #ff3b30;
-  --border: #e0e0e0;
+  --border: #cccccc; /* Darkened border color */
   --warning-bg: rgba(255, 59, 48, 0.1);
-  --card-bg: #ffffff;
-  --text-muted: #686868;
-  --hover-bg: #f0f0f0;
-  --prose-text: #333333;
+  --card-bg: rgba(255, 255, 255, 0.9); /* Added opacity to card background */
+  --text-muted: #333333; /* Darkened muted text */
+  --hover-bg: #e0e0e0; /* Darkened hover background */
+  --prose-text: #000000; /* Darkened prose text */
   --prose-heading: #000000;
+  --card-opacity: 0.9; /* New variable for card opacity */
 }
 
 @theme inline {
@@ -139,6 +141,14 @@ body {
   background-color: var(--card-bg);
   border: 1px solid var(--border);
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Added shadow for better visibility */
+}
+
+/* Light mode specific card adjustments */
+:root[data-theme="light"] .bg-secondary {
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); /* Stronger shadow for light mode */
 }
 
 /* Muted text */
@@ -205,4 +215,33 @@ body {
   border-radius: 0.5rem;
   padding: 1rem;
   margin: 1rem 0;
+}
+
+/* Video Background */
+.video-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.video-element {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translateX(-50%) translateY(-50%);
+  object-fit: cover;
+  opacity: 0.6; /* Reduced opacity for dark mode */
+}
+
+/* Light mode specific video background */
+:root[data-theme="light"] .video-element {
+  opacity: 0.4; /* Lower opacity for light mode for better contrast */
 }
