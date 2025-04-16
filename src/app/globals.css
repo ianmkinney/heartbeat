@@ -15,6 +15,7 @@
   --prose-text: #e0e0e0;
   --prose-heading: #ffffff;
   --card-opacity: 0.85; /* New variable for card opacity */
+  --frame-bg: rgba(15, 15, 15, 0.75); /* New variable for main content frame */
 }
 
 /* Light mode colors */
@@ -32,6 +33,7 @@
   --prose-text: #000000; /* Darkened prose text */
   --prose-heading: #000000;
   --card-opacity: 0.9; /* New variable for card opacity */
+  --frame-bg: rgba(248, 248, 248, 0.8); /* New variable for main content frame */
 }
 
 @theme inline {
@@ -244,4 +246,22 @@ body {
 /* Light mode specific video background */
 :root[data-theme="light"] .video-element {
   opacity: 0.4; /* Lower opacity for light mode for better contrast */
+}
+
+/* Content Frame */
+.content-frame {
+  background-color: var(--frame-bg);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+/* Light mode specific frame adjustments */
+:root[data-theme="light"] .content-frame {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
 }

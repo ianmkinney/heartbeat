@@ -320,14 +320,16 @@ export default function PulseResults({ pulseId }: PulseResultsProps) {
             <div 
               key={email} 
               className={`flex items-center justify-between p-2 rounded ${
-                hasResponded(email) ? 'bg-green-900/20' : 'bg-red-900/20'
+                // Show green if either the email has responded OR all responses have been received
+                // according to the response count (even if responses were deleted)
+                hasResponded(email) || pulse.responseCount === pulse.emails.length ? 'bg-green-900/20' : 'bg-red-900/20'
               }`}
             >
               <span>{email}</span>
               <span className={`text-sm ${
-                hasResponded(email) ? 'text-green-400' : 'text-red-400'
+                hasResponded(email) || pulse.responseCount === pulse.emails.length ? 'text-green-400' : 'text-red-400'
               }`}>
-                {hasResponded(email) ? 'Responded' : 'Waiting for response'}
+                {hasResponded(email) || pulse.responseCount === pulse.emails.length ? 'Responded' : 'Waiting for response'}
               </span>
             </div>
           ))}

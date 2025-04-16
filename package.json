@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbo",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -12,9 +12,14 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
     "@tailwindcss/typography": "^0.5.10",
+    "docx": "^9.3.0",
     "dotenv": "^16.4.7",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
+    "jszip": "^3.10.1",
     "next": "15.2.4",
     "nodemailer": "^6.10.0",
+    "puppeteer": "^24.6.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^3.0.0"

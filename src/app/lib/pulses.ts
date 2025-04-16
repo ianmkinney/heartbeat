@@ -464,4 +464,116 @@ export const updatePulseResponseCount = async (
   }
   
   return updatePulse(id, updateData, userId);
-}; 
+};
+
+// Get pulse with its responses
+export const getPulseWithResponses = async (id: string) => {
+  return withFallback(
+    async () => {
+      // Get pulse from Supabase
+      const { data: pulse, error: pulseError } = await supabase
+        .from('pulses')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (pulseError) {
+        if (pulseError.code === 'PGRST116') return undefined; // Not found
+        throw pulseError;
+      }
+      
+      // Get responses for this pulse
+      const { data: responses, error: responsesError } = await supabase
+        .from('responses')
+        .select('*')
+        .eq('pulse_id', id);
+        
+      if (responsesError) throw responsesError;
+      
+      // Return combined data
+      return {
+        id: pulse.id,
+        user_id: pulse.user_id,
+        name: pulse.name,
+        createdAt: pulse.created_at,
+        emails: pulse.emails,
+        pendingEmails: pulse.pending_emails || [],
+        sentEmails: pulse.sent_emails || [],
+        responseCount: pulse.response_count,
+        lastChecked: pulse.last_checked,
+        hasAnalysis: pulse.has_analysis,
+        analysisContent: pulse.analysis_content,
+        responses
+      };
+    },
+    () => {
+      // Fallback to localStorage
+      const pulses = getPulsesFromStorage();
+      const pulse = pulses[id];
+      
+      // Handle case where pulse doesn't exist
+      if (!pulse) return undefined;
+      
+      // We don't have responses in localStorage fallback
+      return {
+        ...pulse,
+        responses: []
+      };
+    },
+    `Failed to fetch pulse with responses for ID ${id}`
+  );
+};
+
+// Get pulse analysis
+export const getPulseAnalysis = async (id: string) => {
+  return withFallback(
+    async () => {
+      // Get analysis from Supabase
+      const { data: pulse, error } = await supabase
+        .from('pulses')
+        .select('analysis_content, has_analysis')
+        .eq('id', id)
+        .single();
+        
+      if (error) {
+        if (error.code === 'PGRST116') return undefined; // Not found
+        throw error;
+      }
+      
+      // If no analysis is available
+      if (!pulse.has_analysis || !pulse.analysis_content) {
+        return { 
+          available: false,
+          content: null
+        };
+      }
+      
+      return {
+        available: true,
+        content: pulse.analysis_content
+      };
+    },
+    () => {
+      // Fallback to localStorage
+      const pulses = getPulsesFromStorage();
+      const pulse = pulses[id];
+      
+      // Handle case where pulse doesn't exist
+      if (!pulse) return undefined;
+      
+      // If no analysis is available
+      if (!pulse.hasAnalysis || !pulse.analysisContent) {
+        return { 
+          available: false,
+          content: null
+        };
+      }
+      
+      return {
+        available: true,
+        content: pulse.analysisContent
+      };
+    },
+    `Failed to fetch analysis for pulse ID ${id}`
+  );
+};

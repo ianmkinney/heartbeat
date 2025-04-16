@@ -25,6 +25,26 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeout: numb
   }
 };
 
+// Function to delete responses for a pulse
+async function deleteResponsesAfterAnalysis(pulseId) {
+  if (!isSupabaseConfigured) return;
+  
+  try {
+    const { error } = await supabase
+      .from('responses')
+      .delete()
+      .eq('pulse_id', pulseId);
+      
+    if (error) {
+      console.error('Error deleting responses after analysis:', error);
+    } else {
+      console.log(`All responses for pulse ${pulseId} deleted after analysis`);
+    }
+  } catch (error) {
+    console.error('Failed to delete responses:', error);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { pulseId } = await req.json();
@@ -82,6 +102,10 @@ export async function POST(req: NextRequest) {
           
         if (!analysisError && analysisData?.content) {
           console.log('Using existing analysis from database for pulse', pulseId);
+          
+          // Delete responses even if using existing analysis
+          await deleteResponsesAfterAnalysis(pulseId);
+          
           return NextResponse.json({
             success: true,
             analysis: analysisData.content,
@@ -315,6 +339,9 @@ export async function POST(req: NextRequest) {
           hasAnalysis: result?.hasAnalysis,
           hasAnalysisContent: !!result?.analysisContent
         });
+        
+        // Delete responses after analysis is complete
+        await deleteResponsesAfterAnalysis(pulseId);
       } catch (dbError) {
         console.error('Error storing analysis in Supabase:', dbError);
       }
@@ -336,4 +363,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

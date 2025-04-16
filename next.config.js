@@ -12,13 +12,16 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
-  // Configure experimental features for Turbopack
+  // Configure experimental features
   experimental: {
+    // Properly configure server components to use webpack bindings
+    serverComponentsExternalPackages: ['react-server-dom-webpack/server.edge'],
+    // Explicitly use webpack and disable turbopack
     turbo: {
-      resolveAlias: {
-        '@': './src'
-      }
-    }
+      enabled: false
+    },
+    // Force Webpack usage
+    forceSwcTransforms: true,
   },
   
   // Environment variables with fallbacks
@@ -41,4 +44,4 @@ const nextConfig = {
   }
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;

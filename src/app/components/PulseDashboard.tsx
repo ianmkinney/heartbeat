@@ -69,16 +69,11 @@ export default function PulseDashboard() {
         method: 'DELETE',
       });
       
-      try {
-        await deletePulse(pulseId);
-      } catch (error) {
-        console.error('Error with local deletion:', error);
-      }
-      
       if (!response.ok) {
         throw new Error('Failed to delete pulse');
       }
       
+      // Update the UI by removing the deleted pulse
       setPulses(pulses.filter(pulse => pulse.id !== pulseId));
       
     } catch (error) {
