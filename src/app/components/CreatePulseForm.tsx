@@ -8,6 +8,7 @@ export default function CreatePulseForm() {
   const router = useRouter();
   const [emails, setEmails] = useState('');
   const [name, setName] = useState('');
+  const [customQuestions, setCustomQuestions] = useState<string[]>(['']);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [pulseId, setPulseId] = useState('');
@@ -25,6 +26,24 @@ export default function CreatePulseForm() {
       return () => clearTimeout(timeout);
     }
   }, [pulseId, isLoading, router]);
+  
+  // Handle adding new question input field
+  const addQuestion = () => {
+    setCustomQuestions([...customQuestions, '']);
+  };
+  
+  // Handle removing a question
+  const removeQuestion = (index: number) => {
+    if (customQuestions.length <= 1) return;
+    setCustomQuestions(customQuestions.filter((_, i) => i !== index));
+  };
+  
+  // Handle updating a specific question
+  const updateQuestion = (index: number, value: string) => {
+    const updatedQuestions = [...customQuestions];
+    updatedQuestions[index] = value;
+    setCustomQuestions(updatedQuestions);
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,9 +80,16 @@ export default function CreatePulseForm() {
       console.log('Sending pulse to emails:', emailList);
       console.log('Pulse ID:', newPulseId);
       
+      // Filter out empty questions
+      const questionsList = customQuestions
+        .map(question => question.trim())
+        .filter(question => question.length > 0);
+      
+      console.log('Custom questions:', questionsList);
+      
       // Save the pulse to database or local storage
       try {
-        await createPulse(newPulseId, emailList, undefined, emailList, name.trim());
+        await createPulse(newPulseId, emailList, undefined, emailList, name.trim(), questionsList);
       } catch (saveError) {
         console.error('Error saving pulse data:', saveError);
         // Continue anyway since we can still send emails
@@ -160,6 +186,42 @@ export default function CreatePulseForm() {
         
         <div>
           <label 
+            htmlFor="customQuestions" 
+            className="block text-sm font-medium mb-2"
+          >
+            Custom Questions (one per line):
+          </label>
+          {customQuestions.map((question, index) => (
+            <div key={index} className="flex items-center mb-2">
+              <textarea
+                className="input-field flex-1"
+                value={question}
+                onChange={(e) => updateQuestion(index, e.target.value)}
+                placeholder={`Question ${index + 1}`}
+              />
+              <button
+                type="button"
+                className="btn-secondary ml-2"
+                onClick={() => removeQuestion(index)}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn-secondary mt-2"
+            onClick={addQuestion}
+          >
+            Add Question
+          </button>
+          <p className="text-xs mt-1 opacity-70">
+            Leave blank to use the default question: &ldquo;How have you been feeling lately?&rdquo;
+          </p>
+        </div>
+        
+        <div>
+          <label 
             htmlFor="emails" 
             className="block text-sm font-medium mb-2"
           >
@@ -191,4 +253,4 @@ export default function CreatePulseForm() {
       </form>
     </div>
   );
-} 
+}

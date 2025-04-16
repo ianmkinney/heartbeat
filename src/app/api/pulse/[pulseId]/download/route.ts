@@ -38,6 +38,25 @@ export async function GET(
     // Use the emails list since responses are deleted after analysis
     const respondentEmails = pulseData.emails;
     
+    // Check if there are custom questions to display
+    const customQuestionsHtml = pulseData.customQuestions && pulseData.customQuestions.length > 0 
+      ? `
+        <h2>Survey Questions</h2>
+        <p>The following questions were asked in this pulse survey:</p>
+        <div class="questions-list">
+          ${pulseData.customQuestions.map((question, index) => 
+            `<div class="question-item"><strong>Q${index + 1}:</strong> ${question}</div>`
+          ).join('')}
+        </div>
+      ` 
+      : `
+        <h2>Survey Question</h2>
+        <p>The following question was asked in this pulse survey:</p>
+        <div class="questions-list">
+          <div class="question-item"><strong>Q1:</strong> How have you been feeling lately?</div>
+        </div>
+      `;
+    
     // Generate PDF content
     const htmlContent = `
       <!DOCTYPE html>
@@ -100,6 +119,8 @@ export async function GET(
         <div class="email-list">
           ${respondentEmails.map(email => `<div class="email-item">${email}</div>`).join('')}
         </div>
+        
+        ${customQuestionsHtml}
         
         <div class="analysis">
           <h2>Analysis:</h2>

@@ -14,6 +14,7 @@ export interface PulseData {
   lastChecked?: string;
   hasAnalysis?: boolean;
   analysisContent?: string;
+  customQuestions?: string[]; // Array of custom questions to ask in the survey
 }
 
 // Initialize store from localStorage (client-side only)
@@ -66,7 +67,7 @@ const deletePulseFromStorage = (id: string): boolean => {
 const DEFAULT_USER_ID = 1;
 
 // Create a new pulse
-export const createPulse = async (id: string, emails: string[], userId: number = DEFAULT_USER_ID, pendingEmails?: string[], name?: string) => {
+export const createPulse = async (id: string, emails: string[], userId: number = DEFAULT_USER_ID, pendingEmails?: string[], name?: string, customQuestions?: string[]) => {
   // Validate inputs to avoid unexpected errors
   if (!id || !emails || !Array.isArray(emails)) {
     throw new Error('Invalid pulse data: id and emails array are required');
@@ -81,7 +82,8 @@ export const createPulse = async (id: string, emails: string[], userId: number =
     pendingEmails: pendingEmails || [],
     sentEmails: [],
     responseCount: 0,
-    lastChecked: new Date().toISOString()
+    lastChecked: new Date().toISOString(),
+    customQuestions: customQuestions || []
   };
   
   // If Supabase is not configured, fallback to localStorage
@@ -401,40 +403,82 @@ export const updatePulse = async (id: string, data: Partial<PulseData>, userId: 
 
 // Delete a pulse and all its data
 export const deletePulse = async (id: string): Promise<boolean> => {
-  return withFallback(
-    async () => {
-      // First delete all analyses for this pulse
-      const { error: analysisError } = await supabase
-        .from('analyses')
-        .delete()
-        .eq('pulse_id', id);
-        
-      if (analysisError) console.error('Error deleting analyses:', analysisError);
+  if (!isSupabaseConfigured) {
+    console.log('Supabase not configured, using localStorage fallback');
+    return deletePulseFromStorage(id);
+  }
+
+  try {
+    console.log(`Starting deletion process for pulse with ID: ${id}`);
+    
+    // First delete all analyses for this pulse
+    const { error: analysisError } = await supabase
+      .from('analyses')
+      .delete()
+      .eq('pulse_id', id);
       
-      // Then delete all responses for this pulse
-      const { error: responseError } = await supabase
-        .from('responses')
-        .delete()
-        .eq('pulse_id', id);
-        
-      if (responseError) console.error('Error deleting responses:', responseError);
+    if (analysisError) {
+      console.error(`Error deleting analyses for pulse ${id}:`, analysisError);
+      // Continue with deletion even if this fails
+    } else {
+      console.log(`Successfully deleted analyses for pulse ${id}`);
+    }
+    
+    // Then delete all responses for this pulse
+    const { error: responseError } = await supabase
+      .from('responses')
+      .delete()
+      .eq('pulse_id', id);
       
-      // Finally delete the pulse itself
-      const { error: pulseError } = await supabase
-        .from('pulses')
-        .delete()
-        .eq('id', id);
-        
-      if (pulseError) throw pulseError;
+    if (responseError) {
+      console.error(`Error deleting responses for pulse ${id}:`, responseError);
+      // Continue with deletion even if this fails
+    } else {
+      console.log(`Successfully deleted responses for pulse ${id}`);
+    }
+    
+    // Finally delete the pulse itself
+    console.log(`Attempting to delete pulse ${id} from 'pulses' table`);
+    const { error: pulseError } = await supabase
+      .from('pulses')
+      .delete()
+      .eq('id', id);
       
+    if (pulseError) {
+      console.error(`Error deleting pulse ${id}:`, pulseError);
+      throw pulseError;
+    }
+    
+    console.log(`Successfully deleted pulse ${id}`);
+    
+    // Double-check that the pulse was actually deleted
+    const { data: checkData, error: checkError } = await supabase
+      .from('pulses')
+      .select('id')
+      .eq('id', id)
+      .single();
+      
+    if (checkError && checkError.code === 'PGRST116') {
+      // Record not found, which means deletion was successful
+      console.log(`Confirmed pulse ${id} was deleted successfully`);
+      
+      // Also delete from localStorage as a cleanup
+      deletePulseFromStorage(id);
       return true;
-    },
-    () => {
-      // Fallback to localStorage deletion
-      return deletePulseFromStorage(id);
-    },
-    `Failed to delete pulse with ID ${id} from database`
-  );
+    } else if (checkData) {
+      // Record still exists, deletion failed
+      console.error(`Pulse ${id} still exists after deletion attempt`);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Caught error during pulse ${id} deletion:`, error);
+    
+    // Try localStorage deletion as fallback
+    const localResult = deletePulseFromStorage(id);
+    return localResult;
+  }
 };
 
 // Update pulse response count and analysis

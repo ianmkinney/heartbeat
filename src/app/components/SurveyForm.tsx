@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { PulseData } from '@/app/lib/pulses';
 
 interface SurveyFormProps {
   pulseId: string;
@@ -9,13 +10,49 @@ interface SurveyFormProps {
 }
 
 export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
-  const [response, setResponse] = useState('');
+  const [responses, setResponses] = useState<Record<number, string>>({0: ''});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [emails, setEmails] = useState<string[]>([]);
   const [isLoadingEmails, setIsLoadingEmails] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState(respondentId);
+  const [pulse, setPulse] = useState<PulseData | null>(null);
+  const [isLoadingPulse, setIsLoadingPulse] = useState(true);
+  
+  // Fetch pulse data to get custom questions
+  useEffect(() => {
+    async function fetchPulseData() {
+      try {
+        setIsLoadingPulse(true);
+        const response = await fetch(`/api/pulse/${pulseId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch pulse data');
+        }
+        
+        const data = await response.json();
+        if (data.success && data.pulse) {
+          setPulse(data.pulse);
+          
+          // Initialize responses for each question
+          if (data.pulse.customQuestions && data.pulse.customQuestions.length > 0) {
+            const initialResponses: Record<number, string> = {};
+            data.pulse.customQuestions.forEach((_, index) => {
+              initialResponses[index] = '';
+            });
+            setResponses(initialResponses);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching pulse data:', err);
+      } finally {
+        setIsLoadingPulse(false);
+      }
+    }
+    
+    fetchPulseData();
+  }, [pulseId]);
   
   // Fetch emails for this pulse
   useEffect(() => {
@@ -50,14 +87,24 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
     fetchEmails();
   }, [pulseId, respondentId]);
   
+  const handleResponseChange = (index: number, value: string) => {
+    setResponses(prev => ({
+      ...prev,
+      [index]: value
+    }));
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
     
     try {
-      if (!response.trim()) {
-        setError('Please enter a response');
+      // Check if all responses are filled
+      const hasEmptyResponses = Object.values(responses).some(response => !response.trim());
+      
+      if (hasEmptyResponses) {
+        setError('Please answer all questions');
         setIsSubmitting(false);
         return;
       }
@@ -68,6 +115,18 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
         return;
       }
       
+      // Format responses into a single string, separated by newlines and question markers
+      const formattedResponse = Object.entries(responses)
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .map(([index, response], i) => {
+          const questionNumber = Number(index);
+          const questionText = pulse?.customQuestions?.[questionNumber] || 
+            (questionNumber === 0 ? "How have you been feeling lately?" : `Question ${questionNumber + 1}`);
+          
+          return `Q${i+1}: ${questionText}\nA: ${response.trim()}`;
+        })
+        .join('\n\n');
+      
       const result = await fetch('/api/survey', {
         method: 'POST',
         headers: {
@@ -75,7 +134,7 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
         },
         body: JSON.stringify({
           pulseId,
-          response: response.trim(),
+          response: formattedResponse,
           respondentId: selectedEmail // Use the selected email as respondentId
         }),
       });
@@ -109,6 +168,20 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
             Your response has been submitted anonymously
           </p>
         </div>
+      </div>
+    );
+  }
+  
+  if (isLoadingPulse) {
+    return (
+      <div className="text-center py-8">
+        <div className="w-8 h-8 mx-auto mb-4">
+          <svg className="w-full h-full animate-spin" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <p>Loading survey questions...</p>
       </div>
     );
   }
@@ -151,22 +224,25 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
           </p>
         </div>
         
-        <div>
-          <label 
-            htmlFor="response" 
-            className="block text-xl font-medium mb-4"
-          >
-            How have you been feeling lately?
-          </label>
-          <textarea
-            id="response"
-            className="input-field h-48"
-            value={response}
-            onChange={(e) => setResponse(e.target.value)}
-            placeholder="Share your thoughts here. Your response will be kept anonymous."
-            required
-          />
-        </div>
+        {/* Display custom questions or default question */}
+        {(pulse?.customQuestions?.length ? pulse.customQuestions : ['How have you been feeling lately?']).map((question, index) => (
+          <div key={index} className="mb-6">
+            <label 
+              htmlFor={`response-${index}`} 
+              className="block text-xl font-medium mb-4"
+            >
+              {question}
+            </label>
+            <textarea
+              id={`response-${index}`}
+              className="input-field h-32"
+              value={responses[index] || ''}
+              onChange={(e) => handleResponseChange(index, e.target.value)}
+              placeholder="Share your thoughts here. Your response will be kept anonymous."
+              required
+            />
+          </div>
+        ))}
         
         {error && (
           <div className="warning-box text-primary text-sm">
@@ -184,4 +260,4 @@ export default function SurveyForm({ pulseId, respondentId }: SurveyFormProps) {
       </form>
     </div>
   );
-} 
+}
